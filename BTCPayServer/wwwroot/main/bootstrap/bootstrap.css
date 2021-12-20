@@ -36,8 +36,12 @@ body {
   color: var(--btcpay-body-color);
   text-align: var(--btcpay-body-text-align);
   background-color: var(--btcpay-body-bg);
-  -webkit-text-size-adjust: 100%;
-  -webkit-tap-highlight-color: var(--btcpay-black);
+  background-image: url(https://nestpay.ch/wp-content/uploads/2021/05/BG_Header-opacity-03.svg);
+  background-repeat: no-repeat;
+}
+
+.footer{
+  display:none;
 }
 
 hr {
@@ -1786,9 +1790,9 @@ progress {
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 400;
-  line-height: 1.6;
-  color: var(--btcpay-form-text);
-  background-color: var(--btcpay-form-bg);
+  line-height: 1.5;
+  color: #333;
+  background-color: var(--btcpay-color-white);
   background-clip: padding-box;
   border: 1px solid var(--btcpay-form-border);
   -webkit-appearance: none;
@@ -4454,9 +4458,23 @@ fieldset:disabled .btn {
   box-shadow: inset 0 0 0 transparent;
 }
 
-.accordion-button:not(.collapsed)::after {
-  background-image: none;
-  transform: rotate(-180deg);
+.navbar-brand {
+  display: inline-block;
+  padding-top: 0.3125rem;
+  padding-bottom: 0.3125rem;
+  margin-right: 1rem;
+  font-size: 1.25rem;
+  line-height: inherit;
+  white-space: nowrap;
+  background-image: url(https://nestpay.ch/wp-content/uploads/2021/04/LOGO_Nest.svg);
+  background-repeat: no-repeat;
+  background-position: center;
+  height: 50px;
+  width: 140px;
+}
+
+.navbar-brand svg {
+  display:none;
 }
 
 .accordion-button::after {
