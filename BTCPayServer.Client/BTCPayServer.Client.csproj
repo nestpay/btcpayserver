@@ -13,7 +13,7 @@
         <RepositoryType>git</RepositoryType>
     </PropertyGroup>
   <PropertyGroup>
-    <Version Condition=" '$(Version)' == '' ">1.4.0</Version>
+    <Version Condition=" '$(Version)' == '' ">1.5.0</Version>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -27,9 +27,9 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
   </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="NBitcoin" Version="5.0.77" />
-      <PackageReference Include="BTCPayServer.Lightning.Common" Version="1.2.0" />
-      <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+      <PackageReference Include="NBitcoin" Version="6.0.17" />
+      <PackageReference Include="BTCPayServer.Lightning.Common" Version="1.2.8" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     </ItemGroup>
   <ItemGroup>
     <None Include="icon.png" Pack="true" PackagePath="\" />

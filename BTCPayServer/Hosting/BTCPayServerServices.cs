@@ -1,15 +1,18 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices.ComTypes;
-using System.Security.Cryptography;
 using System.Threading;
 using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Abstractions.Extensions;
 using BTCPayServer.Abstractions.Models;
+using BTCPayServer.Abstractions.Services;
+using BTCPayServer.Common;
+using BTCPayServer.Client;
 using BTCPayServer.Configuration;
 using BTCPayServer.Controllers;
+using BTCPayServer.Controllers.GreenField;
 using BTCPayServer.Data;
+using BTCPayServer.Data.Payouts.LightningLike;
 using BTCPayServer.HostedServices;
 using BTCPayServer.Lightning;
 using BTCPayServer.Logging;
@@ -19,7 +22,6 @@ using BTCPayServer.Payments.Bitcoin;
 using BTCPayServer.Payments.Lightning;
 using BTCPayServer.Payments.PayJoin;
 using BTCPayServer.Plugins;
-using BTCPayServer.Plugins.Shopify;
 using BTCPayServer.Security;
 using BTCPayServer.Security.Bitpay;
 using BTCPayServer.Security.GreenField;
@@ -54,9 +56,9 @@ using NBXplorer.DerivationStrategy;
 using Newtonsoft.Json;
 using NicolasDorier.RateLimits;
 using Serilog;
+using NBitcoin.RPC;
 #if ALTCOINS
 using BTCPayServer.Services.Altcoins.Monero;
-using BTCPayServer.Services.Altcoins.Ethereum;
 #endif
 namespace BTCPayServer.Hosting
 {
@@ -67,7 +69,7 @@ namespace BTCPayServer.Hosting
             services.AddSingleton<IJsonConverterRegistration, JsonConverterRegistration>((s) => new JsonConverterRegistration(create));
             return services;
         }
-        public static IServiceCollection AddBTCPayServer(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddBTCPayServer(this IServiceCollection services, IConfiguration configuration, Logs logs)
         {
             services.AddSingleton<MvcNewtonsoftJsonOptions>(o => o.GetRequiredService<IOptions<MvcNewtonsoftJsonOptions>>().Value);
             services.AddDbContext<ApplicationDbContext>((provider, o) =>
@@ -81,12 +83,12 @@ namespace BTCPayServer.Hosting
                 httpClient.Timeout = Timeout.InfiniteTimeSpan;
             });
 
+            services.AddSingleton<Logs>(logs);
             services.AddSingleton<BTCPayNetworkJsonSerializerSettings>();
 
             services.AddPayJoinServices();
 #if ALTCOINS
             services.AddMoneroLike();
-            services.AddEthereumLike();
 #endif
             services.TryAddSingleton<SettingsRepository>();
             services.TryAddSingleton<ISettingsRepository>(provider => provider.GetService<SettingsRepository>());
@@ -102,21 +104,19 @@ namespace BTCPayServer.Hosting
             services.AddStartupTask<MigrationStartupTask>();
             // 
             services.AddStartupTask<BlockExplorerLinkStartupTask>();
-            services.TryAddSingleton<InvoiceRepository>(o =>
-            {
-                var dbContext = o.GetRequiredService<ApplicationDbContextFactory>();
-                return new InvoiceRepository(dbContext, o.GetRequiredService<BTCPayNetworkProvider>(), o.GetService<EventAggregator>());
-            });
+            services.TryAddSingleton<InvoiceRepository>();
+            services.AddSingleton<PaymentService>();
             services.AddSingleton<BTCPayServerEnvironment>();
             services.TryAddSingleton<TokenRepository>();
             services.TryAddSingleton<WalletRepository>();
             services.TryAddSingleton<EventAggregator>();
             services.TryAddSingleton<PaymentRequestService>();
+            services.TryAddSingleton<UserService>();
             services.AddSingleton<ApplicationDbContextFactory>();
             services.AddOptions<BTCPayServerOptions>().Configure(
                 (options) =>
                 {
-                    options.LoadArgs(configuration);
+                    options.LoadArgs(configuration, logs);
                 });
             services.AddOptions<DataDirectories>().Configure(
                 (options) =>
@@ -184,7 +184,7 @@ namespace BTCPayServer.Hosting
                             if (!LightningConnectionString.TryParse(lightning, true, out var connectionString,
                                 out var error))
                             {
-                                Logs.Configuration.LogWarning($"Invalid setting {net.CryptoCode}.lightning, " +
+                                logs.Configuration.LogWarning($"Invalid setting {net.CryptoCode}.lightning, " +
                                                               Environment.NewLine +
                                                               $"If you have a c-lightning server use: 'type=clightning;server=/root/.lightning/lightning-rpc', " +
                                                               Environment.NewLine +
@@ -205,7 +205,7 @@ namespace BTCPayServer.Hosting
                             {
                                 if (connectionString.IsLegacy)
                                 {
-                                    Logs.Configuration.LogWarning(
+                                    logs.Configuration.LogWarning(
                                         $"Setting {net.CryptoCode}.lightning is a deprecated format, it will work now, but please replace it for future versions with '{connectionString.ToString()}'");
                                 }
                                 options.InternalLightningByCryptoCode.Add(net.CryptoCode, connectionString);
@@ -237,7 +237,7 @@ namespace BTCPayServer.Hosting
                         }
                     }
                 });
-            services.TryAddSingleton(o => configuration.ConfigureNetworkProvider());
+            services.TryAddSingleton(o => configuration.ConfigureNetworkProvider(logs));
 
             services.TryAddSingleton<AppService>();
             services.AddSingleton<PluginService>();
@@ -299,14 +299,11 @@ namespace BTCPayServer.Hosting
                 Fallback = new FeeRate(100L, 1)
             });
 
-            services.AddSingleton<CssThemeManager>();
             services.Configure<MvcOptions>((o) =>
             {
-                o.Filters.Add(new ContentSecurityPolicyCssThemeManager());
                 o.ModelMetadataDetailsProviders.Add(new SuppressChildValidationMetadataProvider(typeof(WalletId)));
                 o.ModelMetadataDetailsProviders.Add(new SuppressChildValidationMetadataProvider(typeof(DerivationStrategyBase)));
             });
-            services.AddSingleton<IHostedService, CssThemeManagerHostedService>();
 
             services.AddSingleton<HostedServices.CheckConfigurationHostedService>();
             services.AddSingleton<IHostedService, HostedServices.CheckConfigurationHostedService>(o => o.GetRequiredService<CheckConfigurationHostedService>());
@@ -318,6 +315,11 @@ namespace BTCPayServer.Hosting
             
 
             services.AddSingleton<IPayoutHandler, BitcoinLikePayoutHandler>();
+            services.AddSingleton<IPayoutHandler, LightningLikePayoutHandler>();
+            
+            services.AddHttpClient(LightningLikePayoutHandler.LightningLikePayoutHandlerOnionNamedClient)
+                .ConfigureHttpClient(h => h.DefaultRequestHeaders.ConnectionClose = true)
+                .ConfigurePrimaryHttpMessageHandler<Socks5HttpClientHandler>();
             services.AddSingleton<HostedServices.PullPaymentHostedService>();
             services.AddSingleton<IHostedService, HostedServices.PullPaymentHostedService>(o => o.GetRequiredService<PullPaymentHostedService>());
 
@@ -327,6 +329,10 @@ namespace BTCPayServer.Hosting
 
             services.AddSingleton<LightningLikePaymentHandler>();
             services.AddSingleton<IPaymentMethodHandler>(provider => provider.GetService<LightningLikePaymentHandler>());
+            services.AddSingleton<LNURLPayPaymentHandler>();
+            services.AddSingleton<IPaymentMethodHandler>(provider => provider.GetService<LNURLPayPaymentHandler>());
+            services.AddSingleton<IUIExtension>(new UIExtension("LNURL/LightningAddressOption",
+                "store-integrations-list"));
             services.AddSingleton<IHostedService, LightningListener>();
 
             services.AddSingleton<PaymentMethodHandlerDictionary>();
@@ -356,12 +362,14 @@ namespace BTCPayServer.Hosting
 
             services.AddSingleton<INotificationHandler, InvoiceEventNotification.Handler>();
             services.AddSingleton<INotificationHandler, PayoutNotification.Handler>();
-
+            services.AddSingleton<INotificationHandler, ExternalPayoutTransactionNotification.Handler>();
             services.AddSingleton<IHostedService, DbMigrationsHostedService>();
 #if DEBUG
             services.AddSingleton<INotificationHandler, JunkNotification.Handler>();
 #endif    
             services.TryAddSingleton<ExplorerClientProvider>();
+            services.AddSingleton<IExplorerClientProvider, ExplorerClientProvider>(x =>
+                x.GetRequiredService<ExplorerClientProvider>());
             services.TryAddSingleton<Bitpay>(o =>
             {
                 if (o.GetRequiredService<BTCPayServerOptions>().NetworkType == ChainName.Mainnet)
@@ -379,6 +387,11 @@ namespace BTCPayServer.Hosting
             services.AddTransient<PaymentRequestController>();
             // Add application services.
             services.AddSingleton<EmailSenderFactory>();
+            
+            //create a simple client which hooks up to the http scope
+            services.AddScoped<BTCPayServerClient, LocalBTCPayServerClient>();
+            //also provide a factory that can impersonate user/store id
+            services.AddSingleton<IBTCPayServerClientFactory, BTCPayServerClientFactory>();
 
             services.AddAPIKeyAuthentication();
             services.AddBtcPayServerAuthenticationSchemes();
@@ -436,6 +449,12 @@ namespace BTCPayServer.Hosting
 
             services.AddSingleton<IObjectModelValidator, SkippableObjectValidatorProvider>();
             services.SkipModelValidation<RootedKeyPath>();
+
+            if (configuration.GetOrDefault<bool>("cheatmode", false))
+            {
+                services.AddSingleton<Cheater>();
+                services.AddSingleton<IHostedService, Cheater>(o => o.GetRequiredService<Cheater>());
+            }
             return services;
         }
 
@@ -453,6 +472,7 @@ namespace BTCPayServer.Hosting
 
         public static IApplicationBuilder UsePayServer(this IApplicationBuilder app)
         {
+            app.UseMiddleware<GreenfieldMiddleware>();
             app.UseMiddleware<BTCPayMiddleware>();
             return app;
         }

@@ -129,7 +129,7 @@
           slots = _ref.slots;
 
       var componentData = {
-        staticClass: 'close',
+        staticClass: 'btn-close',
         class: defineProperty({}, 'text-' + props.textVariant, props.textVariant),
         attrs: {
           type: 'button',
@@ -147,7 +147,7 @@
         }
         // Careful not to override the slot with innerHTML
       };if (!slots().default) {
-        componentData.domProps = { innerHTML: '&times;' };
+        componentData.domProps = { innerHTML: '<svg role="img" class="icon icon-close"><use href="/img/icon-sprite.svg#close"></use></svg>' };
       }
       return h('button', mergeData(data, componentData), slots().default);
     }
@@ -804,8 +804,8 @@
 
       var componentData = {
         staticClass: 'badge',
-        class: [!props.variant ? 'badge-secondary' : 'badge-' + props.variant, {
-          'badge-pill': Boolean(props.pill),
+        class: [!props.variant ? 'bg-secondary' : 'bg-' + props.variant, {
+          'rounded-pill': Boolean(props.pill),
           active: props.active,
           disabled: props.disabled
         }],
@@ -2653,9 +2653,9 @@
         src = makeBlankImgSrc(width, height, props.blankColor || 'transparent');
       }
       if (props.left) {
-        align = 'float-left';
+        align = 'float-start';
       } else if (props.right) {
-        align = 'float-right';
+        align = 'float-end';
       } else if (props.center) {
         align = 'mx-auto';
         block = true;
@@ -3053,7 +3053,7 @@
           children = _ref.children;
 
       return h(props.tag, mergeData(data, {
-        staticClass: 'form-row'
+        staticClass: 'row'
       }), children);
     }
   };
@@ -9138,13 +9138,13 @@
 
       if (!props.noBody) {
         if ($slots.aside && !props.rightAlign) {
-          childNodes.push(h(MediaAside, { staticClass: 'mr-3', props: { verticalAlign: props.verticalAlign } }, $slots.aside));
+          childNodes.push(h(MediaAside, { staticClass: 'me-3', props: { verticalAlign: props.verticalAlign } }, $slots.aside));
         }
 
         childNodes.push(h(MediaBody, $slots.default));
 
         if ($slots.aside && props.rightAlign) {
-          childNodes.push(h(MediaAside, { staticClass: 'ml-3', props: { verticalAlign: props.verticalAlign } }, $slots.aside));
+          childNodes.push(h(MediaAside, { staticClass: 'ms-3', props: { verticalAlign: props.verticalAlign } }, $slots.aside));
         }
       }
 

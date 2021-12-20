@@ -1,8 +1,11 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using BTCPayServer.Abstractions.Constants;
+using BTCPayServer.Client;
 using BTCPayServer.Models.AppViewModels;
 using BTCPayServer.Services.Apps;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BTCPayServer.Controllers
@@ -20,6 +23,7 @@ namespace BTCPayServer.Controllers
             }
         }
 
+        [Authorize(Policy = Policies.CanModifyStoreSettings, AuthenticationSchemes = AuthenticationSchemes.Cookie)]
         [HttpGet("{appId}/settings/crowdfund")]
         public async Task<IActionResult> UpdateCrowdfund(string appId)
         {
@@ -32,6 +36,7 @@ namespace BTCPayServer.Controllers
                 Title = settings.Title,
                 StoreId = app.StoreDataId,
                 StoreName = app.StoreData?.StoreName,
+                AppName = app.Name,
                 Enabled = settings.Enabled,
                 EnforceTargetAmount = settings.EnforceTargetAmount,
                 StartDate = settings.StartDate,
@@ -55,22 +60,27 @@ namespace BTCPayServer.Controllers
                 AppId = appId,
                 SearchTerm = app.TagAllInvoices ? $"storeid:{app.StoreDataId}" : $"orderid:{AppService.GetCrowdfundOrderId(appId)}",
                 DisplayPerksRanking = settings.DisplayPerksRanking,
+                DisplayPerksValue = settings.DisplayPerksValue,
                 SortPerksByPopularity = settings.SortPerksByPopularity,
                 Sounds = string.Join(Environment.NewLine, settings.Sounds),
                 AnimationColors = string.Join(Environment.NewLine, settings.AnimationColors)
             };
             return View(vm);
         }
-        [HttpPost]
-        [Route("{appId}/settings/crowdfund")]
+        
+        [HttpPost("{appId}/settings/crowdfund")]
         public async Task<IActionResult> UpdateCrowdfund(string appId, UpdateCrowdfundViewModel vm, string command)
         {
-            if (!string.IsNullOrEmpty(vm.TargetCurrency) && _currencies.GetCurrencyData(vm.TargetCurrency, false) == null)
+            var app = await GetOwnedApp(appId, AppType.Crowdfund);
+            if (app == null)
+                return NotFound();
+            vm.TargetCurrency = await GetStoreDefaultCurrentIfEmpty(app.StoreDataId, vm.TargetCurrency);
+            if (_currencies.GetCurrencyData(vm.TargetCurrency, false) == null)
                 ModelState.AddModelError(nameof(vm.TargetCurrency), "Invalid currency");
 
             try
             {
-                vm.PerksTemplate = _AppService.SerializeTemplate(_AppService.Parse(vm.PerksTemplate, vm.TargetCurrency));
+                vm.PerksTemplate = _appService.SerializeTemplate(_appService.Parse(vm.PerksTemplate, vm.TargetCurrency));
             }
             catch
             {
@@ -115,11 +125,7 @@ namespace BTCPayServer.Controllers
                 return View(vm);
             }
 
-
-            var app = await GetOwnedApp(appId, AppType.Crowdfund);
-            if (app == null)
-                return NotFound();
-
+            app.Name = vm.AppName;
             var newSettings = new CrowdfundSettings()
             {
                 Title = vm.Title,
@@ -142,6 +148,7 @@ namespace BTCPayServer.Controllers
                 AnimationsEnabled = vm.AnimationsEnabled,
                 ResetEveryAmount = vm.ResetEveryAmount,
                 ResetEvery = Enum.Parse<CrowdfundResetEvery>(vm.ResetEvery),
+                DisplayPerksValue = vm.DisplayPerksValue,
                 DisplayPerksRanking = vm.DisplayPerksRanking,
                 SortPerksByPopularity = vm.SortPerksByPopularity,
                 Sounds = parsedSounds,
@@ -151,9 +158,9 @@ namespace BTCPayServer.Controllers
             app.TagAllInvoices = vm.UseAllStoreInvoices;
             app.SetSettings(newSettings);
 
-            await _AppService.UpdateOrCreateApp(app);
+            await _appService.UpdateOrCreateApp(app);
 
-            _EventAggregator.Publish(new AppUpdated()
+            _eventAggregator.Publish(new AppUpdated()
             {
                 AppId = appId,
                 StoreId = app.StoreDataId,

@@ -72,9 +72,11 @@ namespace BTCPayServer.Services.Rates
             yield return new AvailableRateProvider("coingecko", "CoinGecko", "https://api.coingecko.com/api/v3/exchange_rates");
             yield return new AvailableRateProvider("kraken", "Kraken", "https://api.kraken.com/0/public/Ticker?pair=ATOMETH,ATOMEUR,ATOMUSD,ATOMXBT,BATETH,BATEUR,BATUSD,BATXBT,BCHEUR,BCHUSD,BCHXBT,DAIEUR,DAIUSD,DAIUSDT,DASHEUR,DASHUSD,DASHXBT,EOSETH,EOSXBT,ETHCHF,ETHDAI,ETHUSDC,ETHUSDT,GNOETH,GNOXBT,ICXETH,ICXEUR,ICXUSD,ICXXBT,LINKETH,LINKEUR,LINKUSD,LINKXBT,LSKETH,LSKEUR,LSKUSD,LSKXBT,NANOETH,NANOEUR,NANOUSD,NANOXBT,OMGETH,OMGEUR,OMGUSD,OMGXBT,PAXGETH,PAXGEUR,PAXGUSD,PAXGXBT,SCETH,SCEUR,SCUSD,SCXBT,USDCEUR,USDCUSD,USDCUSDT,USDTCAD,USDTEUR,USDTGBP,USDTZUSD,WAVESETH,WAVESEUR,WAVESUSD,WAVESXBT,XBTCHF,XBTDAI,XBTUSDC,XBTUSDT,XDGEUR,XDGUSD,XETCXETH,XETCXXBT,XETCZEUR,XETCZUSD,XETHXXBT,XETHZCAD,XETHZEUR,XETHZGBP,XETHZJPY,XETHZUSD,XLTCXXBT,XLTCZEUR,XLTCZUSD,XMLNXETH,XMLNXXBT,XMLNZEUR,XMLNZUSD,XREPXETH,XREPXXBT,XREPZEUR,XXBTZCAD,XXBTZEUR,XXBTZGBP,XXBTZJPY,XXBTZUSD,XXDGXXBT,XXLMXXBT,XXMRXXBT,XXMRZEUR,XXMRZUSD,XXRPXXBT,XXRPZEUR,XXRPZUSD,XZECXXBT,XZECZEUR,XZECZUSD");
             yield return new AvailableRateProvider("bylls", "Bylls", "https://bylls.com/api/price?from_currency=BTC&to_currency=CAD");
-            yield return new AvailableRateProvider("bitbank", "Bitbank", "https://public.bitbank.cc/prices");
+            yield return new AvailableRateProvider("bitbank", "Bitbank", "https://public.bitbank.cc/tickers");
             yield return new AvailableRateProvider("bitflyer", "Bitflyer", "https://api.bitflyer.com/v1/ticker");
             yield return new AvailableRateProvider("bitpay", "Bitpay", "https://bitpay.com/rates");
+            yield return new AvailableRateProvider("ripio", "Ripio", "https://api.exchange.ripio.com/api/v1/rate/all/");
+            yield return new AvailableRateProvider("cryptomarket", "CryptoMarket", "https://api.exchange.cryptomkt.com/api/3/public/ticker/");
 
             yield return new AvailableRateProvider("polispay", "PolisPay", "https://obol.polispay.com/complex/btc/polis");
 
@@ -99,6 +101,8 @@ namespace BTCPayServer.Services.Rates
             Providers.Add("bylls", new ByllsRateProvider(_httpClientFactory?.CreateClient("EXCHANGE_BYLLS")));
             Providers.Add("bitbank", new BitbankRateProvider(_httpClientFactory?.CreateClient("EXCHANGE_BITBANK")));
             Providers.Add("bitpay", new BitpayRateProvider(_httpClientFactory?.CreateClient("EXCHANGE_BITPAY")));
+            Providers.Add("ripio", new RipioExchangeProvider(_httpClientFactory?.CreateClient("EXCHANGE_RIPIO")));
+            Providers.Add("cryptomarket", new CryptoMarketExchangeRateProvider(_httpClientFactory?.CreateClient("EXCHANGE_CRYPTOMARKET")));
             Providers.Add("bitflyer", new BitflyerRateProvider(_httpClientFactory?.CreateClient("EXCHANGE_BITFLYER")));
             Providers.Add("polispay", new PolisRateProvider(_httpClientFactory?.CreateClient("EXCHANGE_POLIS")));
             // Providers.Add("argoneum", new ArgoneumRateProvider(_httpClientFactory?.CreateClient("EXCHANGE_ARGONEUM")));

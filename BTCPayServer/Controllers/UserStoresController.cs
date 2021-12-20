@@ -50,7 +50,7 @@ namespace BTCPayServer.Controllers
             var store = await _Repo.CreateStore(GetUserId(), vm.Name);
             CreatedStoreId = store.Id;
             TempData[WellKnownTempData.SuccessMessage] = "Store successfully created";
-            return RedirectToAction(nameof(StoresController.UpdateStore), "Stores", new
+            return RedirectToAction(nameof(StoresController.PaymentMethods), "Stores", new
             {
                 storeId = store.Id
             });
@@ -61,23 +61,16 @@ namespace BTCPayServer.Controllers
             get; set;
         }
 
-        [HttpGet]
-        [Route("{storeId}/me/delete")]
+        [HttpGet("{storeId}/me/delete")]
         public IActionResult DeleteStore(string storeId)
         {
             var store = HttpContext.GetStoreData();
             if (store == null)
                 return NotFound();
-            return View("Confirm", new ConfirmModel()
-            {
-                Title = "Delete store " + store.StoreName,
-                Description = "This store will still be accessible to users sharing it",
-                Action = "Delete"
-            });
+            return View("Confirm", new ConfirmModel($"Delete store {store.StoreName}", "This store will still be accessible to users sharing it", "Delete"));
         }
 
-        [HttpPost]
-        [Route("{storeId}/me/delete")]
+        [HttpPost("{storeId}/me/delete")]
         public async Task<IActionResult> DeleteStorePost(string storeId)
         {
             var userId = GetUserId();
@@ -135,7 +128,7 @@ namespace BTCPayServer.Controllers
                     Name = store.StoreName,
                     WebSite = store.StoreWebsite,
                     IsOwner = store.Role == StoreRoles.Owner,
-                    HintWalletWarning = blob.Hints.Wallet
+                    HintWalletWarning = blob.Hints.Wallet && blob.Hints.Lightning
                 });
             }
             return View(result);

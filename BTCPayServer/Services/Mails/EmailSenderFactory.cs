@@ -1,34 +1,37 @@
+using System.Threading.Tasks;
 using BTCPayServer.HostedServices;
+using BTCPayServer.Logging;
 using BTCPayServer.Services.Stores;
 
 namespace BTCPayServer.Services.Mails
 {
     public class EmailSenderFactory
     {
+        public Logs Logs { get; }
+
         private readonly IBackgroundJobClient _jobClient;
-        private readonly SettingsRepository _repository;
+        private readonly SettingsRepository _settingsRepository;
         private readonly StoreRepository _storeRepository;
-        private readonly CssThemeManager _cssThemeManager;
 
         public EmailSenderFactory(IBackgroundJobClient jobClient,
-            SettingsRepository repository,
+            SettingsRepository settingsSettingsRepository,
             StoreRepository storeRepository,
-            CssThemeManager cssThemeManager)
+            Logs logs)
         {
+            Logs = logs;
             _jobClient = jobClient;
-            _repository = repository;
+            _settingsRepository = settingsSettingsRepository;
             _storeRepository = storeRepository;
-            _cssThemeManager = cssThemeManager;
         }
 
-        public IEmailSender GetEmailSender(string storeId = null)
+        public async Task<IEmailSender> GetEmailSender(string storeId = null)
         {
-            var serverSender = new ServerEmailSender(_repository, _jobClient);
+            var serverSender = new ServerEmailSender(_settingsRepository, _jobClient, Logs);
             if (string.IsNullOrEmpty(storeId))
                 return serverSender;
             return new StoreEmailSender(_storeRepository,
-                !_cssThemeManager.Policies.DisableStoresToUseServerEmailSettings ? serverSender : null, _jobClient,
-                storeId);
+                !(await _settingsRepository.GetPolicies()).DisableStoresToUseServerEmailSettings ? serverSender : null, _jobClient,
+                storeId, Logs);
         }
     }
 }

@@ -69,13 +69,16 @@ namespace BTCPayServer.Payments.Bitcoin
                 var lightningInfo = invoiceResponse.CryptoInfo.FirstOrDefault(a =>
                     a.GetpaymentMethodId() == new PaymentMethodId(model.CryptoCode, PaymentTypes.LightningLike));
                 if (!string.IsNullOrEmpty(lightningInfo?.PaymentUrls?.BOLT11))
-                    lightningFallback = "&" + lightningInfo.PaymentUrls.BOLT11.Replace("lightning:", "lightning=", StringComparison.OrdinalIgnoreCase);
+                    lightningFallback = "&" + lightningInfo.PaymentUrls.BOLT11
+                        .Replace("lightning:", "lightning=", StringComparison.OrdinalIgnoreCase)
+                        .ToUpperInvariant();
             }
 
             if (model.Activated)
             {
                 model.InvoiceBitcoinUrl = (cryptoInfo.PaymentUrls?.BIP21 ?? "") + lightningFallback;
-                model.InvoiceBitcoinUrlQR = model.InvoiceBitcoinUrl;
+                model.InvoiceBitcoinUrlQR = (cryptoInfo.PaymentUrls?.BIP21 ?? "") + lightningFallback
+                    .Replace("LIGHTNING=", "lightning=", StringComparison.OrdinalIgnoreCase);
             }
             else
             {
@@ -87,13 +90,12 @@ namespace BTCPayServer.Payments.Bitcoin
             // Ref: https://github.com/btcpayserver/btcpayserver/pull/2060#issuecomment-723828348
             //model.InvoiceBitcoinUrlQR = cryptoInfo.PaymentUrls.BIP21
             //    .Replace("bitcoin:", "BITCOIN:", StringComparison.OrdinalIgnoreCase)
-            //    + lightningFallback.ToUpperInvariant().Replace("LIGHTNING=", "lightning=", StringComparison.OrdinalIgnoreCase);
 
             // We're leading the way in Bitcoin community with adding UPPERCASE Bech32 addresses in QR Code
             if (network.CryptoCode.Equals("BTC", StringComparison.InvariantCultureIgnoreCase) && _bech32Prefix.TryGetValue(model.CryptoCode, out var prefix) && model.BtcAddress.StartsWith(prefix,  StringComparison.OrdinalIgnoreCase))
             {
                 model.InvoiceBitcoinUrlQR = model.InvoiceBitcoinUrlQR.Replace(
-                    $"{network.UriScheme}:{model.BtcAddress}", $"{network.UriScheme}:{model.BtcAddress.ToUpperInvariant()}",
+                    $"{network.NBitcoinNetwork.UriScheme}:{model.BtcAddress}", $"{network.NBitcoinNetwork.UriScheme}:{model.BtcAddress.ToUpperInvariant()}",
                     StringComparison.OrdinalIgnoreCase
                 );
             }
@@ -188,6 +190,15 @@ namespace BTCPayServer.Payments.Bitcoin
             }
 
             var reserved = await prepare.ReserveAddress;
+            if (paymentMethod.ParentEntity.Type != InvoiceType.TopUp)
+            {
+                var txOut = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
+                txOut.ScriptPubKey = reserved.Address.ScriptPubKey;
+                var dust = txOut.GetDustThreshold();
+                var amount = paymentMethod.Calculate().Due;
+                if (amount < dust)
+                    throw new PaymentMethodUnavailableException("Amount below the dust threshold. For amounts of this size, it is recommended to enable an off-chain (Lightning) payment method");
+            }
             onchainMethod.DepositAddress = reserved.Address.ToString();
             onchainMethod.KeyPath = reserved.KeyPath;
             onchainMethod.PayjoinEnabled = blob.PayJoinEnabled &&

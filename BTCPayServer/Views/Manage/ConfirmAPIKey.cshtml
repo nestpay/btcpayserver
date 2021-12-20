@@ -9,7 +9,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <partial name="Header" />
+    <partial name="LayoutHead" />
 </head>
 <body class="bg-light">
     <div class="modal-dialog modal-dialog-centered min-vh-100">
@@ -33,9 +33,13 @@
                 <input type="hidden" asp-for="SelectiveStores" value="@Model.SelectiveStores"/>
 
                 <button type="submit" class="btn btn-primary w-25 mx-2" id="continue" name="command" value="Confirm">Confirm</button>
-                <button type="submit" class="btn btn-secondary w-25 mx-2" onclick="history.back(); return false;">Go back</button>
+                <button type="submit" class="btn btn-secondary w-25 mx-2 only-for-js" id="back">Go back</button>
             </form>
         </div>
     </div>
+    <partial name="LayoutFoot" />
+    <script>
+        delegate('click', '#back', () => { history.back() });
+    </script>
 </body>
 </html>

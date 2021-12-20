@@ -7,7 +7,6 @@ using BTCPayServer.Client.JsonConverters;
 using BTCPayServer.Client.Models;
 using BTCPayServer.JsonConverters;
 using BTCPayServer.Payments;
-using BTCPayServer.Plugins.CoinSwitch;
 using BTCPayServer.Rating;
 using BTCPayServer.Services.Mails;
 using BTCPayServer.Services.Rates;
@@ -40,6 +39,20 @@ namespace BTCPayServer.Data
         public bool RedirectAutomatically { get; set; }
         public bool ShowRecommendedFee { get; set; }
         public int RecommendedFeeBlockTarget { get; set; }
+        string _DefaultCurrency;
+        public string DefaultCurrency 
+        { 
+            get 
+            { 
+                return string.IsNullOrEmpty(_DefaultCurrency) ? "USD" : _DefaultCurrency;
+            } 
+            set
+            {
+                _DefaultCurrency = value;
+                if (!string.IsNullOrEmpty(_DefaultCurrency))
+                    _DefaultCurrency = _DefaultCurrency.Trim().ToUpperInvariant();
+            }
+        }
 
         CurrencyPair[] _DefaultCurrencyPairs;
         [JsonProperty("defaultCurrencyPairs", ItemConverterType = typeof(CurrencyPairJsonConverter))]
@@ -83,6 +96,8 @@ namespace BTCPayServer.Data
         public string CustomCSS { get; set; }
         public string CustomLogo { get; set; }
         public string HtmlTitle { get; set; }
+
+        public bool AutoDetectLanguage { get; set; }
 
         public bool RateScripting { get; set; }
 
@@ -157,7 +172,7 @@ namespace BTCPayServer.Data
 
         [JsonExtensionData]
         public IDictionary<string, JToken> AdditionalData { get; set; } = new Dictionary<string, JToken>();
-        
+
         public class StoreHints
         {
             public bool Wallet { get; set; }
@@ -169,7 +184,10 @@ namespace BTCPayServer.Data
 #pragma warning disable CS0618 // Type or member is obsolete
             if (ExcludedPaymentMethods == null || ExcludedPaymentMethods.Length == 0)
                 return PaymentFilter.Never();
-            return PaymentFilter.Any(ExcludedPaymentMethods.Select(p => PaymentFilter.WhereIs(PaymentMethodId.Parse(p))).ToArray());
+
+            return PaymentFilter.Any(ExcludedPaymentMethods
+                                    .Select(PaymentMethodId.TryParse).Where(id => id != null)
+                                    .Select(PaymentFilter.WhereIs).ToArray());
 #pragma warning restore CS0618 // Type or member is obsolete
         }
 

@@ -40,8 +40,13 @@ namespace BTCPayServer.Tests
     {
         private readonly string _Directory;
 
-        public BTCPayServerTester(string scope)
+        public ILoggerProvider LoggerProvider { get; }
+
+        ILog TestLogs;
+        public BTCPayServerTester(ILog testLogs, ILoggerProvider loggerProvider, string scope)
         {
+            this.LoggerProvider = loggerProvider;
+            this.TestLogs = testLogs;
             this._Directory = scope ?? throw new ArgumentNullException(nameof(scope));
         }
 
@@ -85,7 +90,7 @@ namespace BTCPayServer.Tests
 
         public HashSet<string> Chains { get; set; } = new HashSet<string>() { "BTC" };
         public bool UseLightning { get; set; }
-        public bool AllowAdminRegistration { get; set; } = true;
+        public bool CheatMode { get; set; } = true;
         public bool DisableRegistration { get; set; } = false;
         public async Task StartAsync()
         {
@@ -128,13 +133,13 @@ namespace BTCPayServer.Tests
                 config.AppendLine($"lbtc.explorer.url={LBTCNBXplorerUri.AbsoluteUri}");
                 config.AppendLine($"lbtc.explorer.cookiefile=0");
             }
-            if (AllowAdminRegistration)
-                config.AppendLine("allow-admin-registration=1");
+            if (CheatMode)
+                config.AppendLine("cheatmode=1");
 
             config.AppendLine($"torrcfile={TestUtils.GetTestDataFullPath("Tor/torrc")}");
             config.AppendLine($"socksendpoint={SocksEndpoint}");
             config.AppendLine($"debuglog=debug.log");
-
+            config.AppendLine($"nocsp={NoCSP.ToString().ToLowerInvariant()}");
 
             if (!string.IsNullOrEmpty(SSHPassword) && string.IsNullOrEmpty(SSHKeyFile))
                 config.AppendLine($"sshpassword={SSHPassword}");
@@ -154,7 +159,7 @@ namespace BTCPayServer.Tests
             HttpClient = new HttpClient();
             HttpClient.BaseAddress = ServerUri;
             Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Development");
-            var conf = new DefaultConfiguration() { Logger = Logs.LogProvider.CreateLogger("Console") }.CreateConfiguration(new[] { "--datadir", _Directory, "--conf", confPath, "--disable-registration", DisableRegistration ? "true" : "false" });
+            var conf = new DefaultConfiguration() { Logger = LoggerProvider.CreateLogger("Console") }.CreateConfiguration(new[] { "--datadir", _Directory, "--conf", confPath, "--disable-registration", DisableRegistration ? "true" : "false" });
             _Host = new WebHostBuilder()
                     .UseConfiguration(conf)
                     .UseContentRoot(FindBTCPayServerDirectory())
@@ -168,7 +173,7 @@ namespace BTCPayServer.Tests
                             .AddFilter("Microsoft", LogLevel.Error)
                             .AddFilter("Hangfire", LogLevel.Error)
                             .AddFilter("Fido2NetLib.DistributedCacheMetadataService", LogLevel.Error)
-                            .AddProvider(Logs.LogProvider);
+                            .AddProvider(LoggerProvider);
                         });
                     })
                     .ConfigureServices(services =>
@@ -183,9 +188,9 @@ namespace BTCPayServer.Tests
             var urls = _Host.ServerFeatures.Get<IServerAddressesFeature>().Addresses;
             foreach (var url in urls)
             {
-                Logs.Tester.LogInformation("Listening on " + url);
+                TestLogs.LogInformation("Listening on " + url);
             }
-            Logs.Tester.LogInformation("Server URI " + ServerUri);
+            TestLogs.LogInformation("Server URI " + ServerUri);
 
             InvoiceRepository = (InvoiceRepository)_Host.Services.GetService(typeof(InvoiceRepository));
             StoreRepository = (StoreRepository)_Host.Services.GetService(typeof(StoreRepository));
@@ -198,6 +203,7 @@ namespace BTCPayServer.Tests
 
                 coinAverageMock = new MockRateProvider();
                 coinAverageMock.ExchangeRates.Add(new PairRate(CurrencyPair.Parse("BTC_USD"), new BidAsk(5000m)));
+                coinAverageMock.ExchangeRates.Add(new PairRate(CurrencyPair.Parse("BTC_EUR"), new BidAsk(4000m)));
                 coinAverageMock.ExchangeRates.Add(new PairRate(CurrencyPair.Parse("BTC_CAD"), new BidAsk(4500m)));
                 coinAverageMock.ExchangeRates.Add(new PairRate(CurrencyPair.Parse("BTC_LTC"), new BidAsk(162m)));
                 coinAverageMock.ExchangeRates.Add(new PairRate(CurrencyPair.Parse("LTC_USD"), new BidAsk(500m)));
@@ -229,9 +235,9 @@ namespace BTCPayServer.Tests
             }
 
 
-            Logs.Tester.LogInformation("Waiting site is operational...");
+            TestLogs.LogInformation("Waiting site is operational...");
             await WaitSiteIsOperational();
-            Logs.Tester.LogInformation("Site is now operational");
+            TestLogs.LogInformation("Site is now operational");
         }
         MockRateProvider coinAverageMock;
         private async Task WaitSiteIsOperational()
@@ -283,6 +289,8 @@ namespace BTCPayServer.Tests
         public string SSHPassword { get; internal set; }
         public string SSHKeyFile { get; internal set; }
         public string SSHConnection { get; set; }
+        public bool NoCSP { get; set; }
+
         public T GetController<T>(string userId = null, string storeId = null, bool isAdmin = false) where T : Controller
         {
             var context = new DefaultHttpContext();

@@ -1,16 +1,15 @@
-@using BTCPayServer.Services
 @model BTCPayServer.Models.InvoicingModels.PaymentModel
-
 <script type="text/x-template" id="lightning-method-checkout-template">
     <div>
         <div class="bp-view payment scan" id="scan" v-bind:class="{ 'active': currentTab == 'scan'}">
             <div class="wrapBtnGroup" v-bind:class="{ invisible: !scanDisplayQr }">
-                <div class="btnGroupLnd">
+                <div class="btnGroupLnd" 
+                        v-if="srvModel.peerInfo" >
                     <button 
                             v-on:click="toggleLightningData('bolt11')" 
                             v-bind:class="{ active: currentLightningDisplay === 'bolt11' }"
-                            v-bind:title="$t('BOLT 11 Invoice')">
-                            {{$t("BOLT 11 Invoice")}}
+                            v-bind:title="$t(srvModel.paymentMethodId.endsWith('LNURLPAY')? 'LNURL': 'BOLT 11 Invoice')">  
+                            {{$t(srvModel.paymentMethodId.endsWith('LNURLPAY')? "LNURL": "BOLT 11 Invoice")}}
                     </button>
                     <button 
                         v-on:click="toggleLightningData('node')" 
@@ -42,14 +41,14 @@
             </div>
             <nav  class="copyBox">
                 <div class="copySectionBox bottomBorder">
-                    <label>{{$t("BOLT 11 Invoice")}}</label>
+                    <label>{{$t(srvModel.paymentMethodId.endsWith('LNURLPAY')? "LNURL": "BOLT 11 Invoice")}}</label>
                     <div class="inputWithIcon _copyInput">
                         <input type="text" class="checkoutTextbox" v-bind:value="srvModel.btcAddress" readonly="readonly"/>
                         <img v-bind:src="srvModel.cryptoImage"/>
                     </div>
                 </div>
-                <div class="separatorGem"></div>
-                <div class="copySectionBox">
+                <div class="separatorGem"  v-if="srvModel.peerInfo" ></div>
+                <div class="copySectionBox"  v-if="srvModel.peerInfo">
                     <label>{{$t("Node Info")}}</label>
                     <div class="inputWithIcon _copyInput">
                         <input type="text" class="checkoutTextbox" v-bind:value="srvModel.peerInfo" readonly="readonly"/>
@@ -58,7 +57,7 @@
                 </div>
             </nav>
         </div>
-        @await Component.InvokeAsync("UiExtensionPoint" ,  new { location="checkout-lightning-post-content"})
+        @await Component.InvokeAsync("UiExtensionPoint" ,  new { location="checkout-lightning-post-content", model = Model})
     </div>          
 </script>
 
@@ -70,7 +69,7 @@
         <div class="payment-tabs__tab" id="copy-tab" v-on:click="switchTab('copy')"  v-bind:class="{ 'active': currentTab == 'copy'}" >
             <span>{{$t("Copy")}}</span>
         </div>
-        @await Component.InvokeAsync("UiExtensionPoint" ,  new { location="checkout-lightning-post-tabs"})
+        @await Component.InvokeAsync("UiExtensionPoint" ,  new { location="checkout-lightning-post-tabs", model = Model})
     </div>
 </script>
 

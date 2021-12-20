@@ -3,6 +3,14 @@
     ViewData.SetActivePageAndTitle(ServerNavPages.Services, "Dynamic DNS Service");
 }
 
+@section PageFootContent {
+    <script>
+        delegate('click', '.serviceSettings', e => {
+            document.getElementById('ServiceUrl').value = e.target.dataset.url;
+        });
+    </script>
+}
+
 <h2 class="mb-4">@ViewData["PageTitle"]</h2>
 
 <div class="row">
@@ -15,18 +23,19 @@
             <div class="form-group">
                 <input type="hidden" asp-for="Modify"/>
                 <div class="form-group">
-                    <label asp-for="Settings.ServiceUrl"></label>
+                    <label asp-for="Settings.ServiceUrl" class="form-label"></label>
                     <input id="ServiceUrl" asp-for="Settings.ServiceUrl" class="form-control" placeholder="Url"/>
                     <p class="form-text text-muted">
                         Well-known Dynamic DNS providers are:
                         @for (int i = 0; i < Model.KnownServices.Length; i++)
                         {
-                            <a href="#" onclick="document.getElementById('ServiceUrl').value = '@Model.KnownServices[i].Url'; return false;">@Model.KnownServices[i].Name</a><span>@(i == Model.KnownServices.Length - 1 ? "" : ",")</span>
+                            <a href="#" class="serviceSettings" data-url="@Model.KnownServices[i].Url">@Model.KnownServices[i].Name</a>
+                            <span>@(i == Model.KnownServices.Length - 1 ? "" : ",")</span>
                         }
                     </p>
                 </div>
                 <div class="form-group">
-                    <label asp-for="Settings.Hostname"></label>
+                    <label asp-for="Settings.Hostname" class="form-label"></label>
                     @if (Model.Modify)
                     {
                         <input asp-for="Settings.Hostname" class="form-control" readonly placeholder="Hostname"/>
@@ -45,18 +54,18 @@
                     }
                 </div>
                 <div class="form-group">
-                    <label asp-for="Settings.Login"></label>
+                    <label asp-for="Settings.Login" class="form-label"></label>
                     <input asp-for="Settings.Login" class="form-control" placeholder="Login"/>
                 </div>
                 <div class="form-group">
-                    <label asp-for="Settings.Password"></label>
+                    <label asp-for="Settings.Password" class="form-label"></label>
                     <input asp-for="Settings.Password" class="form-control" placeholder="Password"/>
                 </div>
                 @if (Model.Modify)
                 {
                     <div class="form-group">
-                        <label asp-for="Settings.Enabled"></label>
-                        <input asp-for="Settings.Enabled" class="form-check-inline" type="checkbox"/>
+                        <label asp-for="Settings.Enabled" class="form-label"></label>
+                        <input asp-for="Settings.Enabled" disabled type="checkbox" class="btcpay-toggle ms-2" />
                     </div>
                 }
                 <button name="command" class="btn btn-primary" type="submit" value="Save">Save</button>

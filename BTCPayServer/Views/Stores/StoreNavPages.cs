@@ -2,6 +2,6 @@ namespace BTCPayServer.Views.Stores
 {
     public enum StoreNavPages
     {
-        Index, Create, Rates, Checkout, Tokens, Users, PayButton, Integrations, Wallet, Webhooks, ActivePage
+        Index, Create, Rates, PaymentMethods, CheckoutAppearance, GeneralSettings, Tokens, Users, PayButton, Integrations, Webhooks, ActivePage, PullPayments, Payouts
     }
 }

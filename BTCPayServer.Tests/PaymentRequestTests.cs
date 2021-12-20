@@ -1,48 +1,43 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using BTCPayServer.Client.Models;
 using BTCPayServer.Controllers;
 using BTCPayServer.Models.PaymentRequestViewModels;
-using BTCPayServer.PaymentRequest;
 using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.PaymentRequests;
-using BTCPayServer.Tests.Logging;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using NBitcoin;
 using NBitpayClient;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace BTCPayServer.Tests
 {
-    public class PaymentRequestTests
+    [Collection(nameof(NonParallelizableCollectionDefinition))]
+    public class PaymentRequestTests : UnitTestBase
     {
-        public PaymentRequestTests(ITestOutputHelper helper)
+        public PaymentRequestTests(ITestOutputHelper helper) : base(helper)
         {
-            Logs.Tester = new XUnitLog(helper) {Name = "Tests"};
-            Logs.LogProvider = new XUnitLogProvider(helper);
         }
 
         [Fact]
         [Trait("Integration", "Integration")]
         public async Task CanCreateViewUpdateAndDeletePaymentRequest()
         {
-            using (var tester = ServerTester.Create())
+            using (var tester = CreateServerTester())
             {
                 await tester.StartAsync();
                 var user = tester.NewAccount();
-                user.GrantAccess();
+                await user.GrantAccessAsync();
                 user.RegisterDerivationScheme("BTC");
 
                 var user2 = tester.NewAccount();
-                user2.GrantAccess();
+                
+                await user2.GrantAccessAsync();
 
                 var paymentRequestController = user.GetController<PaymentRequestController>();
                 var guestpaymentRequestController = user2.GetController<PaymentRequestController>();
 
-                var request = new UpdatePaymentRequestViewModel()
+                var request = new UpdatePaymentRequestViewModel
                 {
                     Title = "original juice",
                     Currency = "BTC",
@@ -50,14 +45,13 @@ namespace BTCPayServer.Tests
                     StoreId = user.StoreId,
                     Description = "description"
                 };
-                var id = (Assert
+                var id = Assert
                     .IsType<RedirectToActionResult>(await paymentRequestController.EditPaymentRequest(null, request))
-                    .RouteValues.Values.First().ToString());
+                    .RouteValues.Values.Last().ToString();
 
-
-                //permission guard for guests editing 
+                // Permission guard for guests editing 
                 Assert
-                    .IsType<NotFoundResult>(await guestpaymentRequestController.EditPaymentRequest(id));
+                    .IsType<NotFoundResult>(await guestpaymentRequestController.EditPaymentRequest(user.StoreId, id));
 
                 request.Title = "update";
                 Assert.IsType<RedirectToActionResult>(await paymentRequestController.EditPaymentRequest(id, request));
@@ -71,8 +65,7 @@ namespace BTCPayServer.Tests
                 Assert.IsType<ViewPaymentRequestViewModel>(Assert
                     .IsType<ViewResult>(await paymentRequestController.ViewPaymentRequest(id)).Model);
 
-                //Archive
-
+                // Archive
                 Assert
                     .IsType<RedirectToActionResult>(await paymentRequestController.TogglePaymentRequestArchival(id));
                 Assert.True(Assert
@@ -81,8 +74,9 @@ namespace BTCPayServer.Tests
 
                 Assert.Empty(Assert
                     .IsType<ListPaymentRequestsViewModel>(Assert
-                        .IsType<ViewResult>(await paymentRequestController.GetPaymentRequests()).Model).Items);
-                //unarchive
+                        .IsType<ViewResult>(await paymentRequestController.GetPaymentRequests(user.StoreId)).Model).Items);
+                
+                // Unarchive
                 Assert
                     .IsType<RedirectToActionResult>(await paymentRequestController.TogglePaymentRequestArchival(id));
 
@@ -92,7 +86,7 @@ namespace BTCPayServer.Tests
 
                 Assert.Single(Assert
                     .IsType<ListPaymentRequestsViewModel>(Assert
-                        .IsType<ViewResult>(await paymentRequestController.GetPaymentRequests()).Model).Items);
+                        .IsType<ViewResult>(await paymentRequestController.GetPaymentRequests(user.StoreId)).Model).Items);
             }
         }
 
@@ -100,11 +94,11 @@ namespace BTCPayServer.Tests
         [Trait("Integration", "Integration")]
         public async Task CanPayPaymentRequestWhenPossible()
         {
-            using (var tester = ServerTester.Create())
+            using (var tester = CreateServerTester())
             {
                 await tester.StartAsync();
                 var user = tester.NewAccount();
-                user.GrantAccess();
+                await user.GrantAccessAsync();
                 user.RegisterDerivationScheme("BTC");
 
                 var paymentRequestController = user.GetController<PaymentRequestController>();
@@ -123,7 +117,7 @@ namespace BTCPayServer.Tests
                 };
                 var response = Assert
                     .IsType<RedirectToActionResult>(paymentRequestController.EditPaymentRequest(null, request).Result)
-                    .RouteValues.First();
+                    .RouteValues.Last();
 
                 var invoiceId = Assert
                     .IsType<OkObjectResult>(
@@ -154,7 +148,7 @@ namespace BTCPayServer.Tests
 
                 response = Assert
                     .IsType<RedirectToActionResult>(paymentRequestController.EditPaymentRequest(null, request).Result)
-                    .RouteValues.First();
+                    .RouteValues.Last();
 
                 Assert
                     .IsType<BadRequestObjectResult>(
@@ -166,7 +160,7 @@ namespace BTCPayServer.Tests
         [Trait("Integration", "Integration")]
         public async Task CanCancelPaymentWhenPossible()
         {
-            using (var tester = ServerTester.Create())
+            using (var tester = CreateServerTester())
             {
                 await tester.StartAsync();
                 var user = tester.NewAccount();
@@ -188,11 +182,21 @@ namespace BTCPayServer.Tests
                 };
                 var response = Assert
                     .IsType<RedirectToActionResult>(paymentRequestController.EditPaymentRequest(null, request).Result)
-                    .RouteValues.First();
+                    .RouteValues.Last();
+                var invoiceId = response.Value.ToString();
+                await paymentRequestController.PayPaymentRequest(invoiceId, false);
+                Assert.IsType<BadRequestObjectResult>(await
+                    paymentRequestController.CancelUnpaidPendingInvoice(invoiceId, false));
+
+                request.AllowCustomPaymentAmounts = true;
+
+                response = Assert
+                    .IsType<RedirectToActionResult>(paymentRequestController.EditPaymentRequest(null, request).Result)
+                    .RouteValues.Last();
 
                 var paymentRequestId = response.Value.ToString();
 
-                var invoiceId = Assert
+                invoiceId = Assert
                     .IsType<OkObjectResult>(await paymentRequestController.PayPaymentRequest(paymentRequestId, false))
                     .Value
                     .ToString();
@@ -222,14 +226,14 @@ namespace BTCPayServer.Tests
                     .Value
                     .ToString();
 
-                invoice = user.BitPay.GetInvoice(invoiceId, Facade.Merchant);
+                await user.BitPay.GetInvoiceAsync(invoiceId, Facade.Merchant);
 
-                //a hack to generate invoices for the payment request is to manually create an invocie with an order id that matches:
+                //a hack to generate invoices for the payment request is to manually create an invoice with an order id that matches:
                 user.BitPay.CreateInvoice(new Invoice(1, "USD")
                 {
                     OrderId = PaymentRequestRepository.GetOrderIdForPaymentRequest(paymentRequestId)
                 });
-                //shouldnt crash
+                //shouldn't crash
                 await paymentRequestController.ViewPaymentRequest(paymentRequestId);
                 await paymentRequestController.CancelUnpaidPendingInvoice(paymentRequestId);
             }

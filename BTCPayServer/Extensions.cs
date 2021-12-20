@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -34,6 +35,7 @@ using NBitpayClient;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Newtonsoft.Json.Linq;
+using InvoiceCryptoInfo = BTCPayServer.Services.Invoices.InvoiceCryptoInfo;
 
 namespace BTCPayServer
 {
@@ -133,9 +135,9 @@ namespace BTCPayServer
             finally { try { webSocket.Dispose(); } catch { } }
         }
 
-        public static IEnumerable<BitcoinLikePaymentData> GetAllBitcoinPaymentData(this InvoiceEntity invoice)
+        public static IEnumerable<BitcoinLikePaymentData> GetAllBitcoinPaymentData(this InvoiceEntity invoice, bool accountedOnly)
         {
-            return invoice.GetPayments()
+            return invoice.GetPayments(accountedOnly)
                 .Where(p => p.GetPaymentMethodId()?.PaymentType == PaymentTypes.BTCLike)
                 .Select(p => (BitcoinLikePaymentData)p.GetCryptoPaymentData())
                 .Where(data => data != null);
@@ -150,6 +152,13 @@ namespace BTCPayServer
             await Task.WhenAll(transactions).ConfigureAwait(false);
             return transactions.Select(t => t.Result).Where(t => t != null).ToDictionary(o => o.Transaction.GetHash());
         }
+
+#nullable enable
+        public static IPayoutHandler? FindPayoutHandler(this IEnumerable<IPayoutHandler> handlers, PaymentMethodId paymentMethodId)
+        {
+            return handlers.FirstOrDefault(h => h.CanHandle(paymentMethodId));
+        }
+#nullable restore
 
         public static async Task<PSBT> UpdatePSBT(this ExplorerClientProvider explorerClientProvider, DerivationSchemeSettings derivationSchemeSettings, PSBT psbt)
         {
@@ -202,27 +211,6 @@ namespace BTCPayServer
                 resp.Headers.Remove(name);
             else
                 resp.Headers[name] = value;
-        }
-
-        public static bool IsSegwit(this DerivationStrategyBase derivationStrategyBase)
-        {
-            return ScriptPubKeyType(derivationStrategyBase) != NBitcoin.ScriptPubKeyType.Legacy;
-        }
-        public static ScriptPubKeyType ScriptPubKeyType(this DerivationStrategyBase derivationStrategyBase)
-        {
-            if (IsSegwitCore(derivationStrategyBase))
-            {
-                return NBitcoin.ScriptPubKeyType.Segwit;
-            }
-
-            return (derivationStrategyBase is P2SHDerivationStrategy p2shStrat && IsSegwitCore(p2shStrat.Inner))
-                ? NBitcoin.ScriptPubKeyType.SegwitP2SH
-                : NBitcoin.ScriptPubKeyType.Legacy;
-        }
-        private static bool IsSegwitCore(DerivationStrategyBase derivationStrategyBase)
-        {
-            return (derivationStrategyBase is P2WSHDerivationStrategy) ||
-                            (derivationStrategyBase is DirectDerivationStrategy direct) && direct.Segwit;
         }
 
         public static bool IsLocalNetwork(string server)
@@ -474,18 +462,24 @@ namespace BTCPayServer
             return sql;
         }
 
-        public static BTCPayNetworkProvider ConfigureNetworkProvider(this IConfiguration configuration)
+        public static BTCPayNetworkProvider ConfigureNetworkProvider(this IConfiguration configuration, Logs logs)
         {
             var _networkType = DefaultConfiguration.GetNetworkType(configuration);
             var supportedChains = configuration.GetOrDefault<string>("chains", "btc")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(t => t.ToUpperInvariant()).ToHashSet();
-
+            foreach (var c in supportedChains.ToList())
+            {
+                if (new[] { "ETH", "USDT20", "FAU" }.Contains(c, StringComparer.OrdinalIgnoreCase))
+                {
+                    logs.Configuration.LogWarning($"'{c}' is not anymore supported, please remove it from 'chains'");
+                    supportedChains.Remove(c);
+                }
+            }
             var networkProvider = new BTCPayNetworkProvider(_networkType);
             var filtered = networkProvider.Filter(supportedChains.ToArray());
 #if ALTCOINS
             supportedChains.AddRange(filtered.GetAllElementsSubChains(networkProvider));
-            supportedChains.AddRange(filtered.GetAllEthereumSubChains(networkProvider));
 #endif
 #if !ALTCOINS
             var onlyBTC = supportedChains.Count == 1 && supportedChains.First() == "BTC";
@@ -499,7 +493,7 @@ namespace BTCPayServer
                     throw new ConfigException($"Invalid chains \"{chain}\"");
             }
 
-            Logs.Configuration.LogInformation(
+            logs.Configuration.LogInformation(
                 "Supported chains: " + String.Join(',', supportedChains.ToArray()));
             return result;
         }

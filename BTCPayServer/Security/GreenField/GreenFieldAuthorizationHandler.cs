@@ -1,14 +1,34 @@
+using System.Buffers;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
 using System.Threading.Tasks;
 using BTCPayServer.Client;
+using BTCPayServer.Client.Models;
 using BTCPayServer.Data;
 using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Newtonsoft.Json;
+using StoreData = BTCPayServer.Data.StoreData;
 
 namespace BTCPayServer.Security.GreenField
 {
+    public class LocalGreenFieldAuthorizationHandler : AuthorizationHandler<PolicyRequirement>
+    {
+        protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, PolicyRequirement requirement)
+        {
+            var succeed = context.User.Identity.AuthenticationType == $"Local{GreenFieldConstants.AuthenticationType}";
+
+            if (succeed)
+            {
+                context.Succeed(requirement);
+            }
+            return Task.CompletedTask;
+        }
+    }
+    
     public class GreenFieldAuthorizationHandler : AuthorizationHandler<PolicyRequirement>
 
     {
@@ -74,6 +94,8 @@ namespace BTCPayServer.Security.GreenField
                             if (context.HasPermission(Permission.Create(policy, store.Id), requiredUnscoped))
                                 permissionedStores.Add(store);
                         }
+                        if (!requiredUnscoped && permissionedStores.Count is 0)
+                            break;
                         _HttpContext.SetStoresData(permissionedStores.ToArray());
                         success = true;
                     }
@@ -93,6 +115,7 @@ namespace BTCPayServer.Security.GreenField
                 case Policies.CanViewNotificationsForUser:
                 case Policies.CanModifyProfile:
                 case Policies.CanViewProfile:
+                case Policies.CanDeleteUser:
                 case Policies.Unrestricted:
                     success = context.HasPermission(Permission.Create(policy), requiredUnscoped);
                     break;
@@ -102,6 +125,8 @@ namespace BTCPayServer.Security.GreenField
             {
                 context.Succeed(requirement);
             }
+            _HttpContext.Items[RequestedPermissionKey] = policy;
         }
+        public const string RequestedPermissionKey = nameof(RequestedPermissionKey);
     }
 }

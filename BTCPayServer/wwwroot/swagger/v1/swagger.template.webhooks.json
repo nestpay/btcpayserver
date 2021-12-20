@@ -41,7 +41,9 @@
                 ]
             },
             "post": {
-                "tags": [ "Webhooks" ],
+                "tags": [
+                    "Webhooks"
+                ],
                 "summary": "Create a new webhook",
                 "description": "Create a new webhook",
                 "requestBody": {
@@ -141,7 +143,9 @@
                 ]
             },
             "put": {
-                "tags": [ "Webhooks" ],
+                "tags": [
+                    "Webhooks"
+                ],
                 "summary": "Update a webhook",
                 "description": "Update a webhook",
                 "requestBody": {
@@ -187,7 +191,9 @@
                 ]
             },
             "delete": {
-                "tags": [ "Webhooks" ],
+                "tags": [
+                    "Webhooks"
+                ],
                 "summary": "Delete a webhook",
                 "description": "Delete a webhook",
                 "requestBody": {
@@ -483,7 +489,11 @@
                     "timestamp": {
                         "nullable": false,
                         "description": "Timestamp of when the delivery got broadcasted",
-                        "allOf": [ {"$ref": "#/components/schemas/UnixTimestamp"}]
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/UnixTimestamp"
+                            }
+                        ]
                     },
                     "httpCode": {
                         "type": "number",
@@ -571,13 +581,16 @@
                         "description": "Which event should be received by this endpoint",
                         "properties": {
                             "everything": {
-                                "type": "string",
+                                "type": "boolean",
                                 "description": "If true, the endpoint will receive all events related to the store.",
                                 "nullable": false,
                                 "default": true
                             },
                             "specificEvents": {
-                                "type": "string",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
                                 "description": "If `everything` is false, the specific events that the endpoint is interested in. Current events are: `InvoiceCreated`, `InvoiceReceivedPayment`, `InvoiceProcessing`, `InvoiceExpired`, `InvoiceSettled`, `InvoiceInvalid`.",
                                 "nullable": false
                             }
@@ -612,11 +625,15 @@
                     "type": {
                         "type": "string",
                         "nullable": false,
-                        "description": "The type of this event, current available are `InvoiceCreated`, `InvoiceReceivedPayment`, `InvoicePaidInFull`, `InvoiceExpired`, `InvoiceConfirmed`, and `InvoiceInvalid`."
+                        "description": "The type of this event, current available are `InvoiceCreated`, `InvoiceReceivedPayment`, `InvoiceProcessing`, `InvoiceExpired`, `InvoiceSettled`, `InvoiceInvalid`, and `InvoicePaymentSettled`."
                     },
                     "timestamp": {
                         "description": "The timestamp when this delivery has been created",
-                        "allOf": [ {"$ref": "#/components/schemas/UnixTimestamp"}]
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/UnixTimestamp"
+                            }
+                        ]
                     }
                 }
             },
@@ -654,6 +671,16 @@
                             "manuallyMarked": {
                                 "type": "boolean",
                                 "description": "Whether the invoice have been manually marked as confirmed",
+                                "nullable": false
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "overPaid": {
+                                "type": "boolean",
+                                "description": "Whether this invoice has received more money than expected",
                                 "nullable": false
                             }
                         }
@@ -709,8 +736,25 @@
                                 "type": "boolean",
                                 "description": "Whether this payment has been sent after expiration of the invoice",
                                 "nullable": false
+                            },
+                            "paymentMethod": {
+                                "type": "string",
+                                "description": "What payment method was used for this payment",
+                                "nullable": false
+                            },
+                            "payment": {
+                                "description": "Details about the payment",
+                                "$ref": "#/components/schemas/InvoicePaymentMethodDataModel"
                             }
                         }
+                    }
+                ]
+            },
+            "WebhookInvoicePaymentSettledEvent": {
+                "description": "Callback sent if the `type` is `InvoicePaymentSettled`",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/WebhookInvoiceReceivedPaymentEvent"
                     }
                 ]
             },
@@ -735,9 +779,9 @@
         }
     },
     "x-webhooks": {
-        "Invoice created": {
+        "InvoiceCreated": {
             "post": {
-                "summary": "Invoice created",
+                "summary": "InvoiceCreated",
                 "description": "A new invoice has been created",
                 "parameters": [
                     {
@@ -765,9 +809,9 @@
                 }
             }
         },
-        "Invoice expired": {
+        "InvoiceExpired": {
             "post": {
-                "summary": "Invoice expired",
+                "summary": "InvoiceExpired",
                 "description": "An invoice expired",
                 "parameters": [
                     {
@@ -795,9 +839,9 @@
                 }
             }
         },
-        "Payment received": {
+        "InvoiceReceivedPayment": {
             "post": {
-                "summary": "Payment received",
+                "summary": "InvoiceReceivedPayment",
                 "description": "An invoice received a payment",
                 "parameters": [
                     {
@@ -825,10 +869,40 @@
                 }
             }
         },
-        "Invoice processing": {
+        "InvoicePaymentSettled": {
             "post": {
-                "summary": "Invoice processing",
-                "description": "An invoice has been fully paid",
+                "summary": "InvoicePaymentSettled",
+                "description": "An payment relating to an invoice has settled",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "BTCPay-Sig",
+                        "required": true,
+                        "description": "The HMAC of the body's byte with the secret's of the webhook. `sha256=HMAC256(UTF8(webhook's secret), body)`",
+                        "schema": {
+                            "type": "string",
+                            "example": "sha256=b438519edde5c8144a4f9bcec51a9d346eca6506887c2ceeae1c0092884a97b9"
+                        }
+                    }
+                ],
+                "tags": [
+                    "Webhooks"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WebhookInvoicePaymentSettledEvent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "InvoiceProcessing": {
+            "post": {
+                "summary": "InvoiceProcessing",
+                "description": "Triggers when an invoice is fully paid, but doesn't have the required amount of confirmations on the blockchain yet according to your store's settings.",
                 "parameters": [
                     {
                         "in": "header",
@@ -855,9 +929,9 @@
                 }
             }
         },
-        "Invoice invalid": {
+        "InvoiceInvalid": {
             "post": {
-                "summary": "Invoice invalid",
+                "summary": "InvoiceInvalid",
                 "description": "An invoice became invalid",
                 "parameters": [
                     {
@@ -885,10 +959,10 @@
                 }
             }
         },
-        "Invoice settled": {
+        "InvoiceSettled": {
             "post": {
-                "summary": "Invoice settled",
-                "description": "An invoice has been settled",
+                "summary": "InvoiceSettled",
+                "description": "Triggers when an invoice is considered settled and the merchant can proceed with the order's delivery. The invoice now has enough confirmations on the blockchain (if paid on-chain) according to your store's configuration.",
                 "parameters": [
                     {
                         "in": "header",

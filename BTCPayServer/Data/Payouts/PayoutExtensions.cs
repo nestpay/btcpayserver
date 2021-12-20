@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -28,7 +29,7 @@ namespace BTCPayServer.Data
         
         public static PaymentMethodId GetPaymentMethodId(this PayoutData data)
         {
-            return PaymentMethodId.Parse(data.PaymentMethodId);
+            return PaymentMethodId.TryParse(data.PaymentMethodId, out var paymentMethodId)? paymentMethodId : null;
         }
         public static PayoutBlob GetBlob(this PayoutData data, BTCPayNetworkJsonSerializerSettings serializers)
         {
@@ -37,6 +38,25 @@ namespace BTCPayServer.Data
         public static void SetBlob(this PayoutData data, PayoutBlob blob, BTCPayNetworkJsonSerializerSettings serializers)
         {
             data.Blob = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(blob, serializers.GetSerializer(data.GetPaymentMethodId().CryptoCode)));
+        }
+
+        public static void SetProofBlob(this PayoutData data, ManualPayoutProof blob)
+        {
+            if(blob is null)
+                return;
+            var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(blob));
+            // We only update the property if the bytes actually changed, this prevent from hammering the DB too much
+            if (data.Proof is null || bytes.Length != data.Proof.Length || !bytes.SequenceEqual(data.Proof))
+            {
+                data.Proof = bytes;
+            }
+        }
+
+        public static async Task<List<PaymentMethodId>> GetSupportedPaymentMethods(
+            this IEnumerable<IPayoutHandler> payoutHandlers, StoreData storeData)
+        {
+            return (await Task.WhenAll(payoutHandlers.Select(handler => handler.GetSupportedPaymentMethods(storeData)))).SelectMany(ids => ids).ToList();
+               
         }
     }
 }

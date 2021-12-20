@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Threading.Tasks;
@@ -18,20 +19,27 @@ namespace BTCPayServer.Hosting
     {
         readonly RequestDelegate _Next;
         readonly BTCPayServerOptions _Options;
+
+        public Logs Logs { get; }
+
         readonly BTCPayServerEnvironment _Env;
 
         public BTCPayMiddleware(RequestDelegate next,
             BTCPayServerOptions options,
-            BTCPayServerEnvironment env)
+            BTCPayServerEnvironment env,
+            Logs logs)
         {
             _Env = env ?? throw new ArgumentNullException(nameof(env));
             _Next = next ?? throw new ArgumentNullException(nameof(next));
             _Options = options ?? throw new ArgumentNullException(nameof(options));
+            Logs = logs;
         }
 
 
         public async Task Invoke(HttpContext httpContext)
         {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
             try
             {
                 var bitpayAuth = GetBitpayAuth(httpContext, out bool isBitpayAuth);

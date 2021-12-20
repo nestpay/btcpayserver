@@ -1,19 +1,7 @@
 var app = null;
 
-function addLoadEvent(func) {
-    var oldonload = window.onload;
-    if (typeof window.onload != 'function') {
-        window.onload = func;
-    } else {
-        window.onload = function() {
-            if (oldonload) {
-                oldonload();
-            }
-            func();
-        }
-    }
-}
-addLoadEvent(function (ev) {
+
+document.addEventListener("DOMContentLoaded",function (ev) {
     app = new Vue({
         el: '#app',
         data: function(){
@@ -23,6 +11,8 @@ addLoadEvent(function (ev) {
                 srvModel: window.srvModel,
                 payTotal: '0',
                 payTotalNumeric: 0,
+                tipTotal: null,
+                tipTotalNumeric: 0,
                 fontSize: displayFontSize,
                 defaultFontSize: displayFontSize,
                 keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'C']
@@ -64,6 +54,8 @@ addLoadEvent(function (ev) {
             clearTotal: function() {
                 this.payTotal = '0';
                 this.payTotalNumeric = 0;
+                this.tipTotal = null;
+                this.tipTotalNumeric = 0;
             },
             buttonClicked: function(key) {
                 var payTotal = this.payTotal;
@@ -82,17 +74,33 @@ addLoadEvent(function (ev) {
                     }
                     payTotal += key;
 
-                    var divsibility = this.srvModel.currencyInfo.divisibility;
+                    var divisibility = this.srvModel.currencyInfo.divisibility;
                     var decimalIndex = payTotal.indexOf('.')
-                    if (decimalIndex !== -1 && (payTotal.length - decimalIndex-1  > divsibility)) {
+                    if (decimalIndex !== -1 && (payTotal.length - decimalIndex - 1  > divisibility)) {
                         payTotal = payTotal.replace(".", "");
-                        payTotal = payTotal.substr(0, payTotal.length - divsibility) + "." + payTotal.substr(payTotal.length - divsibility);
+                        payTotal = payTotal.substr(0, payTotal.length - divisibility) + "." + payTotal.substr(payTotal.length - divisibility);
                     }
                 }
 
                 this.payTotal = payTotal;
                 this.payTotalNumeric = parseFloat(payTotal);
-            }
+                this.tipTotalNumeric = 0;
+                this.tipTotal = null;
+            },
+            tipClicked: function(percentage) {
+                this.payTotalNumeric -= this.tipTotalNumeric;
+                this.tipTotalNumeric = parseFloat((this.payTotalNumeric * (percentage / 100)).toFixed(this.srvModel.currencyInfo.divisibility));
+                this.payTotalNumeric = parseFloat((this.payTotalNumeric + this.tipTotalNumeric).toFixed(this.srvModel.currencyInfo.divisibility));
+
+                this.payTotal = this.payTotalNumeric.toString(10);
+                this.tipTotal = this.tipTotalNumeric === 0 ? null : this.tipTotalNumeric.toFixed(this.srvModel.currencyInfo.divisibility);
+            },
+            removeTip: function() {
+                this.payTotalNumeric -= this.tipTotalNumeric;
+                this.payTotal = this.payTotalNumeric.toString(10);
+                this.tipTotalNumeric = 0;
+                this.tipTotal = null;
+            },
         }
     });
 });

@@ -26,7 +26,8 @@
                             "items": {
                                 "type": "string"
                             }
-                        }
+                        },
+                        "example": "1000&orderId=1001&orderId=1002"
                     },
                     {
                         "name": "status",
@@ -34,6 +35,15 @@
                         "required": false,
                         "description": "Array of statuses of invoices to be fetched",
                         "$ref": "#/components/schemas/InvoiceStatus"
+                    },
+                    {
+                        "name": "textSearch",
+                        "in": "query",
+                        "required": false,
+                        "description": "A term that can help locating specific invoices.",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "startDate",
@@ -48,6 +58,26 @@
                         "required": false,
                         "description": "End date of the period to retrieve invoices",
                         "$ref": "#/components/schemas/UnixTimestamp"
+                    },
+                    {
+                        "name": "skip",
+                        "in": "query",
+                        "required": false,
+                        "description": "Number of records to skip",
+                        "schema": {
+                            "nullable": true,
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "name": "take",
+                        "in": "query",
+                        "required": false,
+                        "description": "Number of records returned in response",
+                        "schema": {
+                            "nullable": true,
+                            "type": "number"
+                        }
                     }
                 ],
                 "description": "View information about the existing invoices",
@@ -176,7 +206,7 @@
                         }
                     },
                     "403": {
-                        "description": "If you are authenticated but forbidden to view the specified invoie"
+                        "description": "If you are authenticated but forbidden to view the specified invoice"
                     },
                     "404": {
                         "description": "The key is not found for this invoice"
@@ -242,7 +272,7 @@
                 "security": [
                     {
                         "API Key": [
-                            "btcpay.store.canmodifystoresettings"
+                            "btcpay.store.canmodifyinvoices"
                         ],
                         "Basic": []
                     }
@@ -316,7 +346,7 @@
                 "security": [
                     {
                         "API Key": [
-                            "btcpay.store.canmodifystoresettings"
+                            "btcpay.store.canmodifyinvoices"
                         ],
                         "Basic": []
                     }
@@ -347,6 +377,16 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "onlyAccountedPayments",
+                        "in": "query",
+                        "required": false,
+                        "description": "If default or true, only returns payments which are accounted (in Bitcoin, this mean not returning RBF'd or double spent payments)",
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
                     }
                 ],
                 "description": "View information about the specified invoice's payment methods",
@@ -367,7 +407,7 @@
                         }
                     },
                     "403": {
-                        "description": "If you are authenticated but forbidden to view the specified invoie"
+                        "description": "If you are authenticated but forbidden to view the specified invoice"
                     },
                     "404": {
                         "description": "The key is not found for this invoice"
@@ -433,7 +473,7 @@
                 "security": [
                     {
                         "API Key": [
-                            "btcpay.store.canmodifystoresettings"
+                            "btcpay.store.canmodifyinvoices"
                         ],
                         "Basic": []
                     }
@@ -506,7 +546,7 @@
                 "security": [
                     {
                         "API Key": [
-                            "btcpay.store.canmodifystoresettings"
+                            "btcpay.store.canmodifyinvoices"
                         ],
                         "Basic": []
                     }
@@ -569,7 +609,7 @@
                 "security": [
                     {
                         "API Key": [
-                            "btcpay.store.canmodifystoresettings"
+                            "btcpay.store.canmodifyinvoices"
                         ],
                         "Basic": []
                     }
@@ -681,11 +721,11 @@
                 "description": "",
                 "x-enumNames": [
                     "Invalid",
-                    "Complete"
+                    "Settled"
                 ],
                 "enum": [
                     "Invalid",
-                    "Complete"
+                    "Settled"
                 ]
             },
             "InvoiceStatus": {
@@ -726,10 +766,26 @@
                     "PaidOver"
                 ]
             },
+            "InvoiceDataBase": {
+                "properties": {
+                    "metadata": {
+                        "$ref": "#/components/schemas/InvoiceMetadata"
+                    },
+                    "checkout": {
+                        "nullable": true,
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/CheckoutOptions"
+                            }
+                        ],
+                        "description": "Additional settings to customize the checkout flow"
+                    }
+                }
+            },
             "InvoiceData": {
                 "allOf": [
                     {
-                        "$ref": "#/components/schemas/CreateInvoiceRequest"
+                        "$ref": "#/components/schemas/InvoiceDataBase"
                     },
                     {
                         "type": "object",
@@ -739,21 +795,52 @@
                                 "type": "string",
                                 "description": "The identifier of the invoice"
                             },
+                            "storeId": {
+                                "type": "string",
+                                "description": "The store identifier that the invoice belongs to"
+                            },
+                            "amount": {
+                                "type": "string",
+                                "format": "decimal",
+                                "description": "The amount of the invoice",
+                                "example": "5.00"
+                            },
+                            "currency": {
+                                "type": "string",
+                                "description": "The currency of the invoice",
+                                "example": "USD"
+                            },
+                            "type": {
+                                "$ref": "#/components/schemas/InvoiceType",
+                                "description": "The type of invoice"
+                            },
                             "checkoutLink": {
                                 "type": "string",
                                 "description": "The link to the checkout page, where you can redirect the customer"
                             },
                             "createdTime": {
                                 "description": "The creation time of the invoice",
-                                "allOf": [ {"$ref": "#/components/schemas/UnixTimestamp"}]
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/UnixTimestamp"
+                                    }
+                                ]
                             },
                             "expirationTime": {
                                 "description": "The expiration time of the invoice",
-                                "allOf": [ {"$ref": "#/components/schemas/UnixTimestamp"}]
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/UnixTimestamp"
+                                    }
+                                ]
                             },
                             "monitoringTime": {
                                 "description": "The monitoring time of the invoice",
-                                "allOf": [ {"$ref": "#/components/schemas/UnixTimestamp"}]
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/UnixTimestamp"
+                                    }
+                                ]
                             },
                             "status": {
                                 "$ref": "#/components/schemas/InvoiceStatus",
@@ -762,6 +849,17 @@
                             "additionalStatus": {
                                 "$ref": "#/components/schemas/InvoiceAdditionalStatus",
                                 "description": "a secondary status of the invoice"
+                            },
+                            "availableStatusesForManualMarking": {
+                                "type": "array",
+                                "description": "The statuses the invoice can be manually marked as",
+                                "items": {
+                                    "$ref": "#/components/schemas/InvoiceStatus"
+                                }
+                            },
+                            "archived": {
+                                "type": "boolean",
+                                "description": "true if the invoice is archived"
                             }
                         }
                     }
@@ -775,7 +873,7 @@
                 "type": "object",
                 "description": "Any json object in any schema you want. Will be rendered on a best effort basis in terms of style on the invoice details UI"
             },
-            "InvoiceMetadata":  {
+            "InvoiceMetadata": {
                 "type": "object",
                 "additionalProperties": true,
                 "description": "Additional information around the invoice that can be supplied. The mentioned properties are all optional and you can introduce any json format you wish.",
@@ -786,6 +884,11 @@
                                 "type": "string",
                                 "nullable": true,
                                 "description": "You can use this property to store the ID of an external system. We allow you to search in the invoice list based on this ID."
+                            },
+                            "orderUrl": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "You can use this property to store the URL to the order of an external system. This makes navigating to the order easier."
                             }
                         }
                     },
@@ -910,32 +1013,38 @@
                 ]
             },
             "CreateInvoiceRequest": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                    "amount": {
-                        "type": "string",
-                        "format": "decimal",
-                        "description": "The amount of the invoice"
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/InvoiceDataBase"
                     },
-                    "currency": {
-                        "type": "string",
-                        "nullable": true,
-                        "description": "The currency the invoice will use"
-                    },
-                    "metadata": {
-                        "$ref": "#/components/schemas/InvoiceMetadata"
-                    },
-                    "checkout": {
-                        "nullable": true,
-                        "oneOf": [
-                            {
-                                "$ref": "#/components/schemas/CheckoutOptions"
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "amount": {
+                                "type": "string",
+                                "format": "decimal",
+                                "nullable": true,
+                                "description": "The amount of the invoice. If null or unspecified, the invoice will be a top-up invoice. (ie. The invoice will consider any payment as a full payment)",
+                                "example": "5.00"
+                            },
+                            "currency": {
+                                "type": "string",
+                                "description": "The currency of the invoice (if null, empty or unspecified, the currency will be the store's settings default)'",
+                                "nullable": true,
+                                "example": "USD"
+                            },
+                            "additionalSearchTerms": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Additional search term to help you find this invoice via text search",
+                                "nullable": true
                             }
-                        ],
-                        "description": "Additional settings to customize the checkout flow"
+                        }
                     }
-                }
+                ]
             },
             "UpdateInvoiceRequest": {
                 "type": "object",
@@ -967,16 +1076,29 @@
                         },
                         "description": "A specific set of payment methods to use for this invoice (ie. BTC, BTC-LightningNetwork). By default, select all payment methods enabled in the store."
                     },
+                    "defaultPaymentMethod": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Default payment type for the invoice (e.g., BTC, BTC-LightningNetwork). Default payment method set for the store is used if this parameter is not specified."
+                    },
                     "expirationMinutes": {
                         "nullable": true,
                         "description": "The number of minutes after which an invoice becomes expired. Defaults to the store's settings. (The default store settings is 15)",
-                        "allOf": [ {"$ref": "#/components/schemas/TimeSpanMinutes"}]
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TimeSpanMinutes"
+                            }
+                        ]
                     },
                     "monitoringMinutes": {
-                        "type": "integer",
+                        "type": "number",
                         "nullable": true,
                         "description": "The number of minutes after an invoice expired after which we are still monitoring for incoming payments. Defaults to the store's settings. (The default store settings is 1440, 1 day)",
-                        "allOf": [ {"$ref": "#/components/schemas/TimeSpanMinutes"}]
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TimeSpanMinutes"
+                            }
+                        ]
                     },
                     "paymentTolerance": {
                         "type": "number",
@@ -995,6 +1117,11 @@
                         "type": "boolean",
                         "nullable": true,
                         "description": "When the customer has paid the invoice, and a `redirectURL` is set, the checkout is redirected to `redirectURL` automatically if `redirectAutomatically` is true. Defaults to the store's settings. (The default store settings is false)"
+                    },
+                    "requiresRefundEmail": {
+                        "type": "boolean",
+                        "nullable": true,
+                        "description": "Invoice will require user to provide a refund email if this option is set to `true`. Has no effect if `buyerEmail` metadata is set as there is no email to collect in this case."
                     },
                     "defaultLanguage": {
                         "type": "string",
@@ -1025,7 +1152,11 @@
                 "properties": {
                     "paymentMethod": {
                         "type": "string",
-                        "description": "The payment method"
+                        "description": "Payment method available for the invoice (e.g., \"BTC\" or \"BTC-LightningNetwork\" or \"BTC-LNURLPAY\")"
+                    },
+                    "cryptoCode": {
+                        "type": "string",
+                        "description": "Crypto code of the payment method (e.g., \"BTC\" or \"LTC\")"
                     },
                     "destination": {
                         "type": "string",
@@ -1054,7 +1185,7 @@
                     "due": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "The total amount left to be paid, converted to this payment method's currency"
+                        "description": "The total amount left to be paid, converted to this payment method's currency (will be negative if overpaid)"
                     },
                     "amount": {
                         "type": "string",
@@ -1090,7 +1221,11 @@
                     },
                     "receivedDate": {
                         "description": "The date the payment was recorded",
-                        "allOf": [ {"$ref": "#/components/schemas/UnixTimestamp"}]
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/UnixTimestamp"
+                            }
+                        ]
                     },
                     "value": {
                         "type": "string",
@@ -1124,6 +1259,18 @@
                     "Invalid",
                     "Processing",
                     "Settled"
+                ]
+            },
+            "InvoiceType": {
+                "type": "string",
+                "description": "",
+                "x-enumNames": [
+                    "Standard",
+                    "TopUp"
+                ],
+                "enum": [
+                    "Standard",
+                    "TopUp"
                 ]
             }
         }

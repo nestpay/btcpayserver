@@ -8,7 +8,7 @@ using NBitcoin;
 
 namespace BTCPayServer.Models.WalletViewModels
 {
-    public class WalletPSBTViewModel
+    public class WalletPSBTViewModel : WalletPSBTReadyViewModel
     {
         public string CryptoCode { get; set; }
         public string Decoded { get; set; }
@@ -31,7 +31,7 @@ namespace BTCPayServer.Models.WalletViewModels
         public string PSBT { get; set; }
         public List<string> Errors { get; set; } = new List<string>();
 
-        [Display(Name = "Upload PSBT from file...")]
+        [Display(Name = "Upload PSBT from file")]
         public IFormFile UploadedPSBTFile { get; set; }
 
         public async Task<PSBT> GetPSBT(Network network)
@@ -55,6 +55,10 @@ namespace BTCPayServer.Models.WalletViewModels
                     using var stream = new StreamReader(UploadedPSBTFile.OpenReadStream());
                     PSBT = await stream.ReadToEndAsync();
                 }
+            }
+            if (SigningContext != null && !string.IsNullOrEmpty(SigningContext.PSBT))
+            {
+                PSBT = SigningContext.PSBT;
             }
             if (!string.IsNullOrEmpty(PSBT))
             {

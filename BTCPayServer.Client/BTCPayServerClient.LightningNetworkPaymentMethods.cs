@@ -9,12 +9,19 @@ namespace BTCPayServer.Client
     public partial class BTCPayServerClient
     {
         public virtual async Task<IEnumerable<LightningNetworkPaymentMethodData>>
-            GetStoreLightningNetworkPaymentMethods(string storeId,
+            GetStoreLightningNetworkPaymentMethods(string storeId, bool? enabled = null,
                 CancellationToken token = default)
         {
+            var query = new Dictionary<string, object>();
+            if (enabled != null)
+            {
+                query.Add(nameof(enabled), enabled);
+            }
+
             var response =
                 await _httpClient.SendAsync(
-                    CreateHttpRequest($"api/v1/stores/{storeId}/payment-methods/LightningNetwork"), token);
+                    CreateHttpRequest($"api/v1/stores/{storeId}/payment-methods/LightningNetwork",
+                        query), token);
             return await HandleResponse<IEnumerable<LightningNetworkPaymentMethodData>>(response);
         }
 
@@ -40,23 +47,12 @@ namespace BTCPayServer.Client
 
         public virtual async Task<LightningNetworkPaymentMethodData> UpdateStoreLightningNetworkPaymentMethod(
             string storeId,
-            string cryptoCode, LightningNetworkPaymentMethodData paymentMethod,
+            string cryptoCode, UpdateLightningNetworkPaymentMethodRequest paymentMethod,
             CancellationToken token = default)
         {
             var response = await _httpClient.SendAsync(
                 CreateHttpRequest($"api/v1/stores/{storeId}/payment-methods/LightningNetwork/{cryptoCode}",
                     bodyPayload: paymentMethod, method: HttpMethod.Put), token);
-            return await HandleResponse<LightningNetworkPaymentMethodData>(response);
-        }
-
-        public virtual async Task<LightningNetworkPaymentMethodData>
-            UpdateStoreLightningNetworkPaymentMethodToInternalNode(string storeId,
-                string cryptoCode, LightningNetworkPaymentMethodData paymentMethod,
-                CancellationToken token = default)
-        {
-            var response = await _httpClient.SendAsync(
-                CreateHttpRequest($"api/v1/stores/{storeId}/payment-methods/LightningNetwork/{cryptoCode}/internal",
-                    method: HttpMethod.Put), token);
             return await HandleResponse<LightningNetworkPaymentMethodData>(response);
         }
     }

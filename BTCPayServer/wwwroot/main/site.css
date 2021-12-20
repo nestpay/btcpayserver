@@ -1,23 +1,37 @@
-﻿/* General and site-wide Bootstrap modifications */
+/* Set scroll padding so that anchors don't disappear underneath the fixed navbar */ 
 html {
-    position: relative;
-    min-height: 100%;
-    font-size: var(--btcpay-font-size-base);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    scroll-padding-top: 5rem;
 }
 
-.logo {
-    height: 34px;
+/* General and site-wide Bootstrap modifications */
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    font-weight: 600;
 }
 
-.logo-brand-text {
-    fill: currentColor;
+p {
+    margin-bottom: 1.5rem;
+}
+
+hr.primary {
+    width: 50px;
+    height: 3px;
+    background: var(--btcpay-primary);
+    display: inline-block;
+}
+
+.no-gutter > [class*='col-'] {
+    padding-right: 0;
+    padding-left: 0;
 }
 
 .hide-when-js,
 .input-group-clear {
     display: none;
+}
+
+.note-editable {
+    color: var(--btcpay-form-text);
+    background-color: var(--btcpay-form-bg);
 }
 
 .wraptextAuto {
@@ -26,6 +40,12 @@ html {
     overflow: hidden;
     display: block;
     white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .text-md-nowrap {
+        white-space: nowrap;
+    }
 }
 
 @media (min-width: 768px) {
@@ -44,132 +64,44 @@ html {
     }
 }
 
-a {
-    transition-duration: 0.2s;
-    transition-property: background, color;
+/* Info icons in main headline */
+h2 small .fa-question-circle-o {
+    position: relative;
+    top: -.1rem;
+    font-size: var(--btcpay-font-size-l);
 }
 
-ol {
-   padding-left: 1.125em;
+/* Section Navigation */
+#SectionNav {
+    --border-size: 2px;
+    
+    width: 100%;
+    margin-top: calc(var(--btcpay-space-s) * -1);
+    margin-bottom: var(--btcpay-space-l);
+    border-bottom: var(--border-size) solid var(--btcpay-body-border-light);
 }
 
-ul {
-    padding-left: 1em;
+#SectionNav .nav-link {
+    color: var(--btcpay-nav-link);
+    margin-right: var(--btcpay-space-l);
+    margin-bottom: calc(var(--border-size) * -1);
+    border-bottom: var(--border-size) solid transparent;
+    padding: var(--btcpay-space-m) 0;
+    font-weight: var(--btcpay-font-weight-semibold);
 }
 
-ul li {
-    padding-top: .2em;
-    padding-bottom: .2em;
+#SectionNav .nav-link:last-child {
+    margin-right: 0;
 }
 
-.bg-tile {
-    background-color: var(--btcpay-bg-tile);
+#SectionNav .nav-link:hover {
+    color: var(--btcpay-nav-link-accent);
 }
 
-.alert-link,
-.alert-link:focus,
-.alert-link:hover,
-.alert code {
-    color: inherit;
-}
-
-.navbar .onion {
-    margin-right: auto;
-}
-
-.navbar-brand,
-.navbar-brand:hover,
-.navbar-brand:focus {
-    color: inherit;
-}
-
-.navbar-toggler {
-    color: inherit;
-    border-color: inherit;
-    opacity: .5;
-}
-
-.dropdown-toggle-split,
-.dropdown-toggle-split:hover {
-    border-left: 1px solid var(--btcpay-color-white);
-}
-
-.breadcrumb {
-    background-color: transparent;
-    border-radius: 0;
-}
-
-.breadcrumb-item + .breadcrumb-item {
-    padding-left: 1rem;
-}
-
-.breadcrumb-item + .breadcrumb-item::before {
-    color: var(--btcpay-color-neutral-600);
-    content: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNyIgaGVpZ2h0PSIxMCIgdmlld0JveD0iMCAwIDcgMTAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTQuMzg3MzkgNC4zMTYyOFY1LjYyMUwzLjczNDM5IDQuOTY5MjZMNC4zODczOSA0LjMxNzUxVjQuMzE2MjhaTTAuMDAxMjMxMzkgMS4zMDM0OUwxLjMwNTk5IDBMNi4zMTU1NyA1TDEuMzA1OTkgMTBMMCA4LjY5NjUxTDMuNzAxMTMgNUwwIDEuMzAzNDlIMC4wMDEyMzEzOVoiIGZpbGw9IiM4RDhEOEYiLz48L3N2Zz4K");
-}
-
-/* Admin Sidebar Navigation */
-a.nav-link {
-    color: var(--btcpay-nav-color-link, var(--btcpay-color-neutral-600));
-    background: var(--btcpay-bg-nav-link, transparent);
-}
-
-a.nav-link:focus,
-a.nav-link:hover {
-    color: var(--btcpay-nav-color-link-accent, var(--btcpay-color-neutral-700));
-    background: var(--btcpay-bg-nav-link-hover, transparent);
-}
-
-.col-md-3 .nav-pills {
-    margin-left: -1rem;
-}
-
-section .nav .nav-link {
-    margin: .3rem 0;
-    border-left: 2px solid transparent;
-    padding: .2rem 1rem;
-}
-
-section .nav .nav-link.active,
-section .nav .show > .nav-link {
-    color: var(--btcpay-nav-color-link-active, var(--btcpay-color-neutral-900));
-    font-weight: 700;
-    border-left-color: var(--btcpay-color-primary);
-}
-
-/* Homepage */
-#services img {
-    margin-bottom: 1rem;
-}
-
-.social-row {
-    margin: 2rem 0;
-}
-
-.social-row > div {
-    margin-bottom: 3rem;
-}
-
-.social-row img {
-    height: 50px;
-}
-
-.social-row span {
-    display: block;
-    margin-top: 1rem;
-}
-
-/* Footer */
-.footer {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    font-size: 12px;
-    overflow: hidden;
-    padding: .5em 0;
-    color: var(--btcpay-footer-color, var(--btcpay-color-neutral-100));
-    background: var(--btcpay-footer-bg, var(--btcpay-bg-dark));
+#SectionNav .nav-link.active {
+    color: var(--btcpay-nav-link-active);
+    border-bottom-color: var(--btcpay-nav-border-active);
+    background: var(--btcpay-nav-bg-active);
 }
 
 /* Prevent layout from breaking on hyperlinks with very long URLs as the visible text */
@@ -183,10 +115,6 @@ section .nav .show > .nav-link {
     display: inline-block;
 }
 
-pre {
-    color: var(--btcpay-preformatted-text-color);
-}
-
 .feedback-icon-loading {
     color: orange;
 }
@@ -196,6 +124,7 @@ pre {
 .feedback-icon-failed {
     color: red;
 }
+
 .pin-button {
     height: 135px;
     margin-top: 20px;
@@ -208,28 +137,18 @@ pre {
     background-color: lightgray;
 }
 
-/* Fix for small table showing unnecessary scrollbars */
-.table-responsive .table-sm {
-    width: 100% !important;
-}
-
 [v-cloak] { display:none }
 [v-cloak-loading] > * { display:none }
 [v-cloak-loading]::before { content: "loading…" }
-
-.cursor-pointer{
-    cursor: pointer;
-}
 
 .list-group-item a:not(.btn) {
   color: inherit;
 }
 
-.alert hr {
-    display: block;
-    width: unset;
-    height: 1px;
-    background: none;
+.list-group-item .icon-caret-right {
+    flex: 0 0 24px;
+    height: 24px;
+    align-self: center;
 }
 
 .account-form {
@@ -246,96 +165,10 @@ pre {
     }
 }
 
-@media (min-width: 992px) {
-    .notification-badge {
-        position: relative;
-        top: -10px;
-        left: -10px;
-    }
-}
-
-.btn-outline-onion {
-    background-image: none;
-    background-color: transparent;
-    border: 0;
-}
-
-.btn-outline-onion:hover {
-    color: #fff;
-    background-color: #7D4698;
-}
-
-.btn-outline-onion:focus,
-.btn-outline-onion.focus {
-    color: #fff;
-    background-color: #7D4698;
-    box-shadow: 0 0 0 0.2rem #e6d5ee;
-}
-
-.btn-outline-onion:hover img,
-.btn-outline-onion:focus img,
-.btn-outline-onion.focus img {
-    filter: contrast(0) brightness(200%);
-}
-
 [class*="field-validation"]:not(:empty) {
     display: inline-block;
     margin-top: .5rem;
 }
-
-.w-100px { width: 100px; }
-.w-125px { width: 125px; }
-.w-150px { width: 150px; }
-.w-175px { width: 175px; }
-.w-200px { width: 200px; }
-
-.fw-semibold {
-    font-weight: 600 !important;
-}
-
-.text-monospace {
-    font-size: .95rem;
-}
-
-input.w-auto,
-select.w-auto,
-textarea.w-auto {
-    max-width: 100%;
-}
-
-/* Chrome, Safari, Edge, Opera */
-input[type=number].hide-number-spin::-webkit-outer-spin-button,
-input[type=number].hide-number-spin::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-/* Firefox */
-input[type=number].hide-number-spin {
-    -moz-appearance: textfield;
-}
-
-/* Bootstrap Responsive Helper */
-html[data-devenv]:before {
-    display: inline-block;
-    position: fixed;
-    z-index: 1000;
-    right: 0;
-    bottom: 0;
-    background: var(--btcpay-color-secondary-backdrop);
-    color: var(--btcpay-color-secondary-text);
-    opacity: .7;
-    padding: 4px 5px 3px 7px;
-    font-size: 10px;
-    border-top-left-radius: 4px;
-}
-
-@media (max-width: 575px) { html[data-devenv]:before { content: 'XS'; } }
-@media (min-width: 576px) and (max-width: 767px) { html[data-devenv]:before { content: 'SM'; } }
-@media (min-width: 768px) and (max-width: 991px) { html[data-devenv]:before { content: 'MD'; } }
-@media (min-width: 992px) and (max-width: 1199px) { html[data-devenv]:before { content: 'LG'; } }
-@media (min-width: 1200px) { html[data-devenv]:before { content: 'XL'; } }
-@media print { html[data-devenv]:before { content: none; } }
 
 /* Print */
 @media print {
@@ -343,7 +176,7 @@ html[data-devenv]:before {
     .table th {
         background: transparent;
     }
-    .jumbotron {
+    .bg-tile.h-100.p-3 {
         padding: 1rem 0 !important;
     }
     .text-print-default {
@@ -355,6 +188,17 @@ html[data-devenv]:before {
     .toasted-container {
         display: none !important;
     }
+    #markStatusDropdownMenuButton {
+        border: 0;
+        background: transparent;
+        padding: 0 !important;
+        color: inherit;
+        font-weight:  var(--btcpay-font-weight-normal);
+        font-size: var(--btcpay-body-font-size);
+    }
+    #markStatusDropdownMenuButton::after {
+        content: none;
+    }
 }
 
 /* Richtext editor */
@@ -364,90 +208,8 @@ html[data-devenv]:before {
 
 .note-editor .table.table-sm th,
 .note-editor .table.table-sm td {
-    border: 1px dotted var(--btcpay-color-neutral-400);
+    border: 1px dotted var(--btcpay-neutral-400);
 }
-
-/* Custom */
-.btcpay-status {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: .25em solid transparent;
-    border-radius: 50%;
-    width: 19px;
-    height: 19px;
-}
-.btcpay-status:before {
-    content: '';
-    border-radius: 50%;
-    width: 9px;
-    height: 9px;
-}
-.btcpay-status--enabled {
-    background-color: rgba(0, 182, 52, .3);
-}
-.btcpay-status--enabled:before {
-    background-color: #00B634;
-}
-.btcpay-status--disabled {
-    background-color: rgba(251, 56, 61, .3);
-}
-.btcpay-status--disabled:before {
-    background-color: #FB383D;
-}
-
-.btcpay-toggle {
-    --border-size: 2px;
-    --toggle-width: 40px;
-    --toggle-height: 24px;
-    --switch-size: calc(var(--toggle-height) - 2 * var(--border-size));
-
-    position: relative;
-    display: inline-block;
-    width: var(--toggle-width);
-    height: var(--toggle-height);
-    border: 0;
-    border-radius: calc(var(--toggle-height) / 2);
-    background: var(--btcpay-color-neutral-500);
-    font-size: 0;
-}
-
-input.btcpay-toggle {
-    appearance: none;
-    -moz-appearance: none;
-    -webkit-appearance: none;
-}
-
-input.btcpay-toggle:checked,
-.btcpay-toggle.btcpay-toggle--active {
-    background: var(--btcpay-color-primary);
-}
-
-.btcpay-toggle::after {
-    content: "";
-    position: absolute;
-    border-radius: 50%;
-    top: var(--border-size);
-    left: var(--border-size);
-    width: var(--switch-size);
-    height: var(--switch-size);
-    background-color: var(--btcpay-color-white);
-}
-
-.btcpay-toggle,
-.btcpay-toggle::after {
-    transition: all 0.2s;
-}
-input.btcpay-toggle:checked::after,
-.btcpay-toggle.btcpay-toggle--active::after {
-    left: calc(var(--toggle-width) - var(--switch-size) - var(--border-size));
-}
-
-label + input.btcpay-toggle {
-    position: relative;
-    top: .45rem;
-}
-
 
 svg.icon {
     display: inline-block;
@@ -456,30 +218,5 @@ svg.icon {
 }
 
 svg.icon-note {
-  color: var(--btcpay-color-neutral-500);
-}
-
-/* Custom notification dropdown styling */
-.notification-dropdown {
-    border: 0;
-    border-radius: 4px;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
-    padding: 0;
-}
-
-@media (min-width: 992px) {
-    .notification-dropdown {
-        width: 420px;
-        top: 64px;
-        right: -32px;
-    }
-}
-
-.notification:hover {
-    background-color: var(--btcpay-body-bg);
-}
-
-[data-required]::after {
-    content: "*";
-    color: var(--btcpay-color-danger);
+  color: var(--btcpay-neutral-500);
 }

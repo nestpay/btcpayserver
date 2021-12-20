@@ -1,7 +1,3 @@
-hljs.initHighlightingOnLoad();
-$(document).ready(function () {
-
-    $(".richtext").summernote({
-        minHeight: 300
-    });
-});
+document.addEventListener('DOMContentLoaded', () => {
+    $('.richtext').summernote(window.summernoteOptions())
+})

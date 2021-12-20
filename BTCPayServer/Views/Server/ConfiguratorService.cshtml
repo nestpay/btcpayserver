@@ -19,13 +19,13 @@
             </p>
         </div>
        
-            <a href="@Model.ServiceLink" target="_blank" class="form-group">
-                <label>Service</label>
-                <input asp-for="ServiceLink" readonly class="form-control" />
-            </a>
+        <a href="@Model.ServiceLink" target="_blank" class="form-group" rel="noreferrer noopener">
+            <label asp-for="ServiceLink" class="form-label">Service</label>
+            <input asp-for="ServiceLink" class="form-control" readonly />
+        </a>
     </div>
 </div>
 
-@section Scripts {
+@section PageFootContent {
     <partial name="_ValidationScriptsPartial" />
 }

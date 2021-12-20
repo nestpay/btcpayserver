@@ -1,39 +1,47 @@
 using NBitcoin;
-using Newtonsoft.Json;
 
 namespace BTCPayServer.Client.Models
 {
-    public class OnChainPaymentMethodData
+    public class OnChainPaymentMethodDataPreview : OnChainPaymentMethodBaseData
+    {
+        /// <summary>
+        /// Crypto code of the payment method
+        /// </summary>
+        public string CryptoCode { get; set; }
+
+        public OnChainPaymentMethodDataPreview()
+        {
+            
+        }
+
+        public OnChainPaymentMethodDataPreview(string cryptoCode, string derivationScheme, string label, RootedKeyPath accountKeyPath)
+        {
+            Label = label;
+            AccountKeyPath = accountKeyPath;
+            CryptoCode = cryptoCode;
+            DerivationScheme = derivationScheme;
+        }
+    }
+
+    public class OnChainPaymentMethodData : OnChainPaymentMethodDataPreview
     {
         /// <summary>
         /// Whether the payment method is enabled
         /// </summary>
         public bool Enabled { get; set; }
 
-        /// <summary>
-        /// Crypto code of the payment method
-        /// </summary>
-        public string CryptoCode { get; set; }
-
-        /// <summary>
-        /// The derivation scheme
-        /// </summary>
-        public string DerivationScheme { get; set; }
-
-        public string Label { get; set; }
-
-        [JsonConverter(typeof(NBitcoin.JsonConverters.KeyPathJsonConverter))]
-        public RootedKeyPath AccountKeyPath { get; set; }
+        public string PaymentMethod { get; set; }
 
         public OnChainPaymentMethodData()
         {
+            
         }
 
-        public OnChainPaymentMethodData(string cryptoCode, string derivationScheme, bool enabled)
+        public OnChainPaymentMethodData(string cryptoCode, string derivationScheme, bool enabled, string label, RootedKeyPath accountKeyPath, string paymentMethod) :
+            base(cryptoCode, derivationScheme, label, accountKeyPath)
         {
             Enabled = enabled;
-            CryptoCode = cryptoCode;
-            DerivationScheme = derivationScheme;
+            PaymentMethod = paymentMethod;
         }
     }
 }

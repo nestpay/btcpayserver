@@ -22,24 +22,51 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace BTCPayServer.Controllers
 {
     public partial class ServerController
     {
-        [HttpGet("server/files/{fileId?}")]
-        public async Task<IActionResult> Files(string fileId = null)
+        [HttpGet("server/files")]
+        public async Task<IActionResult> Files([FromQuery] string[] fileIds = null)
         {
-            var fileUrl = string.IsNullOrEmpty(fileId) ? null : await _FileService.GetFileUrl(Request.GetAbsoluteRootUri(), fileId);
-
             var model = new ViewFilesViewModel()
             {
-                Files = await _StoredFileRepository.GetFiles(),
-                SelectedFileId = string.IsNullOrEmpty(fileUrl) ? null : fileId,
-                DirectFileUrl = fileUrl,
+                Files = await _StoredFileRepository.GetFiles(),          
+                DirectUrlByFiles = null,
                 StorageConfigured = (await _SettingsRepository.GetSettingAsync<StorageSettings>()) != null
             };
+
+            if (fileIds != null && fileIds.Length > 0)
+            {
+                bool allFilesExist = true;
+                Dictionary<string, string> directUrlByFiles = new Dictionary<string, string>();
+                foreach (string filename in fileIds)
+                {
+                    string fileUrl = await _FileService.GetFileUrl(Request.GetAbsoluteRootUri(), filename);
+                    if (fileUrl == null)
+                    {
+                        allFilesExist = false;
+                        break;
+                    }
+                    directUrlByFiles.Add(filename, fileUrl);
+                }
+
+                if (!allFilesExist)
+                {
+                    this.TempData.SetStatusMessageModel(new StatusMessageModel()
+                    {
+                        Message = "Some of the files were not found",
+                        Severity = StatusMessageModel.StatusSeverity.Warning,
+                    });
+                }
+                else
+                {                
+                    model.DirectUrlByFiles = directUrlByFiles;
+                }
+            }
             return View(model);
         }
 
@@ -51,7 +78,7 @@ namespace BTCPayServer.Controllers
                 await _FileService.RemoveFile(fileId, null);
                 return RedirectToAction(nameof(Files), new
                 {
-                    fileId = "",
+                    fileIds = Array.Empty<string>(),
                     statusMessage = "File removed"
                 });
             }
@@ -127,7 +154,7 @@ namespace BTCPayServer.Controllers
             });
             return RedirectToAction(nameof(Files), new
             {
-                fileId
+                fileIds = new string[] { fileId }
             });
 
         }
@@ -146,25 +173,59 @@ namespace BTCPayServer.Controllers
             public bool IsDownload { get; set; }
         }
 
-
+        
         [HttpPost("server/files/upload")]
-        public async Task<IActionResult> CreateFile(IFormFile file)
+        public async Task<IActionResult> CreateFiles(List<IFormFile> files)
         {
-            if (!file.FileName.IsValidFileName())
+            if (files != null && files.Count > 0)
             {
-                this.TempData.SetStatusMessageModel(new StatusMessageModel()
+                int invalidFileNameCount = 0;
+                List<string> fileIds = new List<string>();
+                foreach (IFormFile file in files)
                 {
-                    Message = "Invalid file name",
-                    Severity = StatusMessageModel.StatusSeverity.Error
+                    if (!file.FileName.IsValidFileName())
+                    {
+                        invalidFileNameCount++;
+                        continue;
+                    }
+                    var newFile = await _FileService.AddFile(file, GetUserId());
+                    fileIds.Add(newFile.Id);
+                }
+
+                StatusMessageModel.StatusSeverity statusMessageSeverity;
+                string statusMessage; 
+
+                if (invalidFileNameCount == 0)
+                {
+                    statusMessage = "Files Added Successfully";
+                    statusMessageSeverity = StatusMessageModel.StatusSeverity.Success;
+                }
+                else if (invalidFileNameCount > 0 && invalidFileNameCount < files.Count)
+                {
+                    statusMessage = $"{files.Count - invalidFileNameCount} files were added. {invalidFileNameCount} files had invalid names";
+                    statusMessageSeverity = StatusMessageModel.StatusSeverity.Error;
+                }
+                else
+                {
+                    statusMessage = $"Files could not be added due to invalid names";
+                    statusMessageSeverity = StatusMessageModel.StatusSeverity.Error;
+                }
+
+                this.TempData.SetStatusMessageModel(new StatusMessageModel()
+                    {
+                        Message = statusMessage,
+                        Severity = statusMessageSeverity
+                    });
+
+                return RedirectToAction(nameof(Files), new
+                { 
+                    fileIds = fileIds.ToArray(),
                 });
+            }
+            else
+            {
                 return RedirectToAction(nameof(Files));
             }
-            var newFile = await _FileService.AddFile(file, GetUserId());
-            return RedirectToAction(nameof(Files), new
-            {
-                statusMessage = "File added!",
-                fileId = newFile.Id
-            });
         }
 
         private string GetUserId()

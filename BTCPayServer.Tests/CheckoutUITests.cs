@@ -11,27 +11,26 @@ using Xunit.Abstractions;
 namespace BTCPayServer.Tests
 {
     [Trait("Selenium", "Selenium")]
-    public class CheckoutUITests
+    [Collection(nameof(NonParallelizableCollectionDefinition))]
+    public class CheckoutUITests : UnitTestBase
     {
         public const int TestTimeout = TestUtils.TestTimeout;
-        public CheckoutUITests(ITestOutputHelper helper)
+        public CheckoutUITests(ITestOutputHelper helper) : base(helper)
         {
-            Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
-            Logs.LogProvider = new XUnitLogProvider(helper);
         }
 
         [Fact(Timeout = TestTimeout)]
         public async Task CanHandleRefundEmailForm()
         {
 
-            using (var s = SeleniumTester.Create())
+            using (var s = CreateSeleniumTester())
             {
                 await s.StartAsync();
                 s.GoToRegister();
                 s.RegisterNewUser();
                 var store = s.CreateNewStore();
                 s.AddDerivationScheme("BTC");
-                s.GoToStore(store.storeId, StoreNavPages.Checkout);
+                s.GoToStore(store.storeId, StoreNavPages.CheckoutAppearance);
                 s.Driver.FindElement(By.Id("RequiresRefundEmail")).Click();
                 s.Driver.FindElement(By.Name("command")).Click();
 
@@ -71,9 +70,71 @@ namespace BTCPayServer.Tests
         }
 
         [Fact(Timeout = TestTimeout)]
+        public async Task CanHandleRefundEmailForm2()
+        {
+
+            using (var s = CreateSeleniumTester())
+            {
+                // Prepare user account and store
+                await s.StartAsync();
+                s.GoToRegister();
+                s.RegisterNewUser();
+                var store = s.CreateNewStore();
+                s.AddDerivationScheme("BTC");
+
+                // Now create an invoice that requires a refund email
+                var invoice = s.CreateInvoice(store.storeName, 100, "USD", "", null, true);
+                s.GoToInvoiceCheckout(invoice);
+
+                var emailInput = s.Driver.FindElement(By.Id("emailAddressFormInput"));
+                Assert.True(emailInput.Displayed);
+
+                emailInput.SendKeys("a@g.com");
+
+                var actionButton = s.Driver.FindElement(By.Id("emailAddressForm")).FindElement(By.CssSelector("button.action-button"));
+                actionButton.Click();
+                try // Sometimes the click only take the focus, without actually really clicking on it...
+                {
+                    actionButton.Click();
+                }
+                catch { }
+
+                s.Driver.AssertElementNotFound(By.Id("emailAddressFormInput"));
+                s.Driver.Navigate().Refresh();
+                s.Driver.AssertElementNotFound(By.Id("emailAddressFormInput"));
+
+                s.GoToHome();
+
+                // Now create an invoice that doesn't require a refund email
+                s.CreateInvoice(store.storeName, 100, "USD", "", null, false);
+                s.Driver.FindElement(By.ClassName("invoice-details-link")).Click();
+                s.Driver.AssertNoError();
+                s.Driver.Navigate().Back();
+                s.Driver.FindElement(By.ClassName("invoice-checkout-link")).Click();
+                Assert.NotEmpty(s.Driver.FindElements(By.Id("checkoutCtrl")));
+                s.Driver.AssertElementNotFound(By.Id("emailAddressFormInput"));
+                s.Driver.Navigate().Refresh();
+                s.Driver.AssertElementNotFound(By.Id("emailAddressFormInput"));
+
+                s.GoToHome();
+
+                // Now create an invoice that requires refund email but already has one set, email input shouldn't show up
+                s.CreateInvoice(store.storeName, 100, "USD", "a@g.com", null, true);
+                s.Driver.FindElement(By.ClassName("invoice-details-link")).Click();
+                s.Driver.AssertNoError();
+                s.Driver.Navigate().Back();
+                s.Driver.FindElement(By.ClassName("invoice-checkout-link")).Click();
+                Assert.NotEmpty(s.Driver.FindElements(By.Id("checkoutCtrl")));
+                s.Driver.AssertElementNotFound(By.Id("emailAddressFormInput"));
+                s.Driver.Navigate().Refresh();
+                s.Driver.AssertElementNotFound(By.Id("emailAddressFormInput"));
+            }
+        }
+
+        [Fact(Timeout = TestTimeout)]
         public async Task CanUseLanguageDropdown()
         {
-            using (var s = SeleniumTester.Create())
+            using (var s = CreateSeleniumTester())
             {
                 await s.StartAsync();
                 s.GoToRegister();
@@ -102,9 +163,9 @@ namespace BTCPayServer.Tests
 
         [Fact(Timeout = TestTimeout)]
         [Trait("Lightning", "Lightning")]
-        public async Task CanUseLightningSatsFeature()
+        public async Task CanSetDefaultPaymentMethod()
         {
-            using (var s = SeleniumTester.Create())
+            using (var s = CreateSeleniumTester())
             {
                 s.Server.ActivateLightning();
                 await s.StartAsync();
@@ -112,22 +173,44 @@ namespace BTCPayServer.Tests
                 s.RegisterNewUser(true);
                 var store = s.CreateNewStore();
                 s.AddLightningNode();
-                s.GoToStore(store.storeId, StoreNavPages.Checkout);
-                s.Driver.SetCheckbox(By.Id("LightningAmountInSatoshi"), true);
-                var command = s.Driver.FindElement(By.Name("command"));
+                s.AddDerivationScheme("BTC");
 
-                command.Click();
-                var invoiceId = s.CreateInvoice(store.storeName, 10, "USD", "a@g.com");
+                var invoiceId = s.CreateInvoice(store.storeName, defaultPaymentMethod: "BTC_LightningLike");
+                s.GoToInvoiceCheckout(invoiceId);
+
+                Assert.Equal("Bitcoin (Lightning) (BTC)", s.Driver.FindElement(By.ClassName("payment__currencies")).Text);
+                s.Driver.Quit();
+            }
+        }
+
+        [Fact(Timeout = TestTimeout)]
+        [Trait("Lightning", "Lightning")]
+        public async Task CanUseLightningSatsFeature()
+        {
+            using (var s = CreateSeleniumTester())
+            {
+                s.Server.ActivateLightning();
+                await s.StartAsync();
+                s.GoToRegister();
+                s.RegisterNewUser(true);
+                (string storeName, string storeId) = s.CreateNewStore();
+                s.AddLightningNode();
+                s.GoToStore(storeId);
+                s.Driver.FindElement(By.Id("Modify-LightningBTC")).Click();
+                s.Driver.SetCheckbox(By.Id("LightningAmountInSatoshi"), true);
+                s.Driver.FindElement(By.Id("save")).Click();
+                Assert.Contains("BTC Lightning settings successfully updated", s.FindAlertMessage().Text);
+                
+                var invoiceId = s.CreateInvoice(storeName, 10, "USD", "a@g.com");
                 s.GoToInvoiceCheckout(invoiceId);
                 Assert.Contains("Sats", s.Driver.FindElement(By.ClassName("payment__currencies_noborder")).Text);
-
             }
         }
 
         [Fact(Timeout = TestTimeout)]
         public async Task CanUseJSModal()
         {
-            using (var s = SeleniumTester.Create())
+            using (var s = CreateSeleniumTester())
             {
                 await s.StartAsync();
                 s.GoToRegister();
@@ -138,7 +221,7 @@ namespace BTCPayServer.Tests
                 var invoiceId = s.CreateInvoice(store.storeId, 0.001m, "BTC", "a@x.com");
                 var invoice = await s.Server.PayTester.InvoiceRepository.GetInvoice(invoiceId);
                 s.Driver.Navigate()
-                    .GoToUrl(new Uri(s.Server.PayTester.ServerUri, $"tests/index.html?invoice={invoiceId}"));
+                    .GoToUrl(new Uri(s.ServerUri, $"tests/index.html?invoice={invoiceId}"));
                 TestUtils.Eventually(() =>
                 {
                     Assert.True(s.Driver.FindElement(By.Name("btcpay")).Displayed);
@@ -159,7 +242,7 @@ namespace BTCPayServer.Tests
                 closebutton.Click();
                 s.Driver.AssertElementNotFound(By.Name("btcpay"));
                 Assert.Equal(s.Driver.Url,
-                    new Uri(s.Server.PayTester.ServerUri, $"tests/index.html?invoice={invoiceId}").ToString());
+                    new Uri(s.ServerUri, $"tests/index.html?invoice={invoiceId}").ToString());
             }
         }
     }

@@ -23,28 +23,23 @@
     var sortByAsc = "Sort by ascending...";
 }
 
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <h2 class="mb-0">@ViewData["Title"]</h2>
-    <a asp-action="CreateUser" class="btn btn-primary" role="button" id="CreateUser">
-        <span class="fa fa-plus"></span> Add User
-    </a>
-</div>
-<form
-    asp-action="ListUsers"
-    asp-route-sortOrder="@(userEmailSortOrder)"
->
-    <div class="input-group">
-        <input asp-for="SearchTerm" class="form-control" placeholder="Search by email..." />
-        <div class="input-group-append">
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
+    <form asp-action="ListUsers" asp-route-sortOrder="@(userEmailSortOrder)">
+        <div class="input-group mb-2">
+            <input asp-for="SearchTerm" class="form-control" placeholder="Search by email..." />
             <button type="submit" class="btn btn-secondary" title="Search by email">
                 <span class="fa fa-search"></span> Search
             </button>
         </div>
-    </div>
-    <span asp-validation-for="SearchTerm" class="text-danger"></span>
-</form>
+        <span asp-validation-for="SearchTerm" class="text-danger"></span>
+    </form>
+    <a asp-action="CreateUser" class="btn btn-primary mb-2" role="button" id="CreateUser">
+        <span class="fa fa-plus"></span>
+        Add User
+    </a>
+</div>
 
-<table class="table table-sm">
+<table class="table table-hover">
     <thead>
     <tr>
         <th>
@@ -60,14 +55,20 @@
         </th>
         <th>Created</th>
         <th>Verified</th>
-        <th class="text-right">Actions</th>
+        <th class="text-end">Actions</th>
     </tr>
     </thead>
     <tbody>
     @foreach (var user in Model.Users)
     {
         <tr>
-            <td>@user.Email</td>
+            <td class="d-flex align-items-center">
+                <span class="me-2">@user.Email</span>
+                @foreach (var role in user.Roles)
+                {
+                    <span class="badge bg-info">@Model.Roles[role]</span>
+                }
+            </td>
             <td>@user.Created?.ToBrowserDate()</td>
             <td class="text-center">
                 @if (user.Verified)
@@ -79,7 +80,7 @@
                     <span class="text-danger fa fa-times"></span>
                 }
             </td>
-            <td class="text-right">
+            <td class="text-end">
                 <a asp-action="User" asp-route-userId="@user.Id">Edit</a> <span> - </span> <a asp-action="DeleteUser" asp-route-userId="@user.Id">Remove</a>
             </td>
         </tr>

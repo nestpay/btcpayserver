@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using StoreData = BTCPayServer.Data.StoreData;
 
 namespace BTCPayServer.Controllers.GreenField
 {
@@ -33,22 +34,22 @@ namespace BTCPayServer.Controllers.GreenField
         }
         [Authorize(Policy = Policies.CanViewStoreSettings, AuthenticationSchemes = AuthenticationSchemes.Greenfield)]
         [HttpGet("~/api/v1/stores")]
-        public ActionResult<IEnumerable<Client.Models.StoreData>> GetStores()
+        public Task<ActionResult<IEnumerable<Client.Models.StoreData>>> GetStores()
         {
             var stores = HttpContext.GetStoresData();
-            return Ok(stores.Select(FromModel));
+            return Task.FromResult<ActionResult<IEnumerable<Client.Models.StoreData>>>(Ok(stores.Select(FromModel)));
         }
 
         [Authorize(Policy = Policies.CanViewStoreSettings, AuthenticationSchemes = AuthenticationSchemes.Greenfield)]
         [HttpGet("~/api/v1/stores/{storeId}")]
-        public ActionResult<Client.Models.StoreData> GetStore(string storeId)
+        public Task<ActionResult<Client.Models.StoreData>> GetStore(string storeId)
         {
             var store = HttpContext.GetStoreData();
             if (store == null)
             {
-                return NotFound();
+                return Task.FromResult<ActionResult<Client.Models.StoreData>>(NotFound());
             }
-            return Ok(FromModel(store));
+            return Task.FromResult<ActionResult<Client.Models.StoreData>>(Ok(FromModel(store)));
         }
 
         [Authorize(Policy = Policies.CanModifyStoreSettings, AuthenticationSchemes = AuthenticationSchemes.Greenfield)]
@@ -82,8 +83,8 @@ namespace BTCPayServer.Controllers.GreenField
 
             var store = new Data.StoreData();
             
-            PaymentMethodId.TryParse(request.DefaultPaymentMethod, out var defaultPaymnetMethodId);
-            ToModel(request, store, defaultPaymnetMethodId);
+            PaymentMethodId.TryParse(request.DefaultPaymentMethod, out var defaultPaymentMethodId);
+            ToModel(request, store, defaultPaymentMethodId);
             await _storeRepository.CreateStore(_userManager.GetUserId(User), store);
             return Ok(FromModel(store));
         }
@@ -103,8 +104,9 @@ namespace BTCPayServer.Controllers.GreenField
                 return validationResult;
             }
 
-            PaymentMethodId.TryParse(request.DefaultPaymentMethod, out var defaultPaymnetMethodId);
-            ToModel(request, store, defaultPaymnetMethodId);
+            PaymentMethodId.TryParse(request.DefaultPaymentMethod, out var defaultPaymentMethodId);
+
+            ToModel(request, store, defaultPaymentMethodId);
             await _storeRepository.UpdateStore(store);
             return Ok(FromModel(store));
         }
@@ -118,10 +120,9 @@ namespace BTCPayServer.Controllers.GreenField
                 Name = data.StoreName,
                 Website = data.StoreWebsite,
                 SpeedPolicy = data.SpeedPolicy,
-                DefaultPaymentMethod = data.GetDefaultPaymentId(_btcPayNetworkProvider)?.ToStringNormalized(),
+                DefaultPaymentMethod = data.GetDefaultPaymentId()?.ToStringNormalized(),
                 //blob
                 //we do not include DefaultCurrencyPairs,Spread, PreferredExchange, RateScripting, RateScript  in this model and instead opt to set it in stores/storeid/rates endpoints
-                //we do not include CoinSwitchSettings in this model and instead opt to set it in stores/storeid/coinswitch endpoints
                 //we do not include ExcludedPaymentMethods in this model and instead opt to set it in stores/storeid/payment-methods endpoints
                 //we do not include EmailSettings in this model and instead opt to set it in stores/storeid/email endpoints
                 //we do not include PaymentMethodCriteria because moving the CurrencyValueJsonConverter to the Client csproj is hard and requires a refactor (#1571 & #1572)
@@ -150,7 +151,6 @@ namespace BTCPayServer.Controllers.GreenField
         private static void ToModel(StoreBaseData restModel, Data.StoreData model, PaymentMethodId defaultPaymentMethod)
         {
             var blob = model.GetStoreBlob();
-
             model.StoreName = restModel.Name;
             model.StoreName = restModel.Name;
             model.StoreWebsite = restModel.Website;
@@ -159,11 +159,11 @@ namespace BTCPayServer.Controllers.GreenField
             //we do not include the default payment method in this model and instead opt to set it in the stores/storeid/payment-methods endpoints
             //blob
             //we do not include DefaultCurrencyPairs;Spread; PreferredExchange; RateScripting; RateScript  in this model and instead opt to set it in stores/storeid/rates endpoints
-            //we do not include CoinSwitchSettings in this model and instead opt to set it in stores/storeid/coinswitch endpoints
             //we do not include ExcludedPaymentMethods in this model and instead opt to set it in stores/storeid/payment-methods endpoints
             //we do not include EmailSettings in this model and instead opt to set it in stores/storeid/email endpoints
             //we do not include OnChainMinValue and LightningMaxValue because moving the CurrencyValueJsonConverter to the Client csproj is hard and requires a refactor (#1571 & #1572)
             blob.NetworkFeeMode = restModel.NetworkFeeMode;
+            blob.DefaultCurrency = restModel.DefaultCurrency;
             blob.RequiresRefundEmail = restModel.RequiresRefundEmail;
             blob.LightningAmountInSatoshi = restModel.LightningAmountInSatoshi;
             blob.LightningPrivateRouteHints = restModel.LightningPrivateRouteHints;
@@ -193,7 +193,7 @@ namespace BTCPayServer.Controllers.GreenField
             }
 
             if (!string.IsNullOrEmpty(request.DefaultPaymentMethod) &&
-                !PaymentMethodId.TryParse(request.DefaultPaymentMethod, out var defaultPaymnetMethodId))
+                !PaymentMethodId.TryParse(request.DefaultPaymentMethod, out var defaultPaymentMethodId))
             {
                 ModelState.AddModelError(nameof(request.Name), "DefaultPaymentMethod is invalid");
             }

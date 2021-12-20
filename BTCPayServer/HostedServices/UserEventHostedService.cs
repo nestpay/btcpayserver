@@ -20,8 +20,9 @@ namespace BTCPayServer.HostedServices
         private readonly EmailSenderFactory _emailSenderFactory;
         private readonly LinkGenerator _generator;
 
+
         public UserEventHostedService(EventAggregator eventAggregator, UserManager<ApplicationUser> userManager,
-            EmailSenderFactory emailSenderFactory, LinkGenerator generator) : base(eventAggregator)
+            EmailSenderFactory emailSenderFactory, LinkGenerator generator, Logs logs) : base(eventAggregator, logs)
         {
             _userManager = userManager;
             _emailSenderFactory = emailSenderFactory;
@@ -52,7 +53,7 @@ namespace BTCPayServer.HostedServices
                             new HostString(userRegisteredEvent.RequestUri.Host, userRegisteredEvent.RequestUri.Port),
                             userRegisteredEvent.RequestUri.PathAndQuery);
                         userRegisteredEvent.CallbackUrlGenerated?.SetResult(new Uri(callbackUrl));
-                        _emailSenderFactory.GetEmailSender()
+                        (await _emailSenderFactory.GetEmailSender())
                             .SendEmailConfirmation(userRegisteredEvent.User.Email, callbackUrl);
                     }
                     else if (!await _userManager.HasPasswordAsync(userRegisteredEvent.User))
@@ -82,7 +83,7 @@ namespace BTCPayServer.HostedServices
                             userPasswordResetRequestedEvent.RequestUri.Port),
                         userPasswordResetRequestedEvent.RequestUri.PathAndQuery);
                     userPasswordResetRequestedEvent.CallbackUrlGenerated?.SetResult(new Uri(callbackUrl));
-                    _emailSenderFactory.GetEmailSender()
+                    (await _emailSenderFactory.GetEmailSender())
                         .SendSetPasswordConfirmation(userPasswordResetRequestedEvent.User.Email, callbackUrl,
                             newPassword);
                     break;

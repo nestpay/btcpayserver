@@ -1,8 +1,10 @@
+#nullable enable
 using System.Linq;
 using System.Threading.Tasks;
 using BTCPayServer.Data;
 using BTCPayServer.Models;
 using BTCPayServer.Models.StoreViewModels;
+using BTCPayServer.Client.Models;
 using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
 using NBitcoin.DataEncoders;
@@ -14,7 +16,12 @@ namespace BTCPayServer.Controllers
         [HttpGet("{storeId}/integrations")]
         public IActionResult Integrations()
         {            
-            return View("Integrations",new IntegrationsViewModel());
+            return View("Integrations", new IntegrationsViewModel());
+        }
+
+        private async Task<Data.WebhookDeliveryData?> LastDeliveryForWebhook(string webhookId) 
+        {
+            return (await _Repo.GetWebhookDeliveries(CurrentStore.Id, webhookId, 1)).ToList().FirstOrDefault();
         }
 
         [HttpGet("{storeId}/webhooks")]
@@ -22,12 +29,21 @@ namespace BTCPayServer.Controllers
         {
             var webhooks = await _Repo.GetWebhooks(CurrentStore.Id);
             return View(nameof(Webhooks), new WebhooksViewModel()
-            {
-                Webhooks = webhooks.Select(w => new WebhooksViewModel.WebhookViewModel()
                 {
-                    Id = w.Id,
-                    Url = w.GetBlob().Url
-                }).ToArray()
+                    Webhooks = webhooks.Select(async w => {
+                        var lastDelivery = await LastDeliveryForWebhook(w.Id);
+                        var lastDeliveryBlob = lastDelivery?.GetBlob();
+                        
+                        return new WebhooksViewModel.WebhookViewModel()
+                        {
+                            Id = w.Id,
+                            Url = w.GetBlob().Url,
+                            LastDeliveryErrorMessage = lastDeliveryBlob?.ErrorMessage,
+                            LastDeliveryTimeStamp = lastDelivery?.Timestamp,
+                            LastDeliverySuccessful = lastDeliveryBlob == null ? true : lastDeliveryBlob.Status == WebhookDeliveryStatus.HttpSuccess,
+                        };
+                    } 
+                ).Select(t => t.Result).ToArray()
             });
         }
 
@@ -50,12 +66,7 @@ namespace BTCPayServer.Controllers
             if (webhook is null)
                 return NotFound();
 
-            return View("Confirm", new ConfirmModel
-            {
-                Title = $"Delete a webhook",
-                Description = "This webhook will be removed from this store, do you wish to continue?",
-                Action = "Delete"
-            });
+            return View("Confirm", new ConfirmModel("Delete webhook", "This webhook will be removed from this store. Are you sure?", "Delete"));
         }
 
         [HttpPost("{storeId}/webhooks/{webhookId}/remove")]
@@ -107,6 +118,30 @@ namespace BTCPayServer.Controllers
             await _Repo.UpdateWebhook(CurrentStore.Id, webhookId, viewModel.CreateBlob());
             TempData[WellKnownTempData.SuccessMessage] = "The webhook has been updated";
             return RedirectToAction(nameof(Webhooks), new { storeId = CurrentStore.Id });
+        }
+
+        [HttpGet("{storeId}/webhooks/{webhookId}/test")]
+        public async Task<IActionResult> TestWebhook(string webhookId)
+        {
+            var webhook = await _Repo.GetWebhook(CurrentStore.Id, webhookId);
+            if (webhook is null)
+                return NotFound();
+
+            return View(nameof(TestWebhook));
+        }
+
+        [HttpPost("{storeId}/webhooks/{webhookId}/test")]
+        public async Task<IActionResult> TestWebhook(string webhookId, TestWebhookViewModel viewModel)
+        {
+            var result = await WebhookNotificationManager.TestWebhook(CurrentStore.Id, webhookId, viewModel.Type);
+
+            if (result.Success) {
+                TempData[WellKnownTempData.SuccessMessage] = $"{viewModel.Type.ToString()} event delivered successfully! Delivery ID is {result.DeliveryId}";
+            } else {
+                TempData[WellKnownTempData.ErrorMessage] = $"{viewModel.Type.ToString()} event could not be delivered. Error message received: {(result.ErrorMessage ?? "unknown")}";
+            }
+
+            return View(nameof(TestWebhook));
         }
 
         [HttpPost("{storeId}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliver")]

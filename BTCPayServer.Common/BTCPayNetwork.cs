@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BTCPayServer.Common;
 using NBitcoin;
 using NBXplorer;
 using NBXplorer.Models;
@@ -65,43 +66,8 @@ namespace BTCPayServer
         public virtual bool ReadonlyWallet { get; set; } = false;
         public virtual bool VaultSupported { get; set; } = false;
         public int MaxTrackedConfirmation { get; set; } = 6;
-        public string UriScheme { get; set; }
         public bool SupportPayJoin { get; set; } = false;
         public bool SupportLightning { get; set; } = true;
-
-        public KeyPath GetRootKeyPath(DerivationType type)
-        {
-            KeyPath baseKey;
-            if (!NBitcoinNetwork.Consensus.SupportSegwit)
-            {
-                baseKey = new KeyPath("44'");
-            }
-            else
-            {
-                switch (type)
-                {
-                    case DerivationType.Legacy:
-                        baseKey = new KeyPath("44'");
-                        break;
-                    case DerivationType.SegwitP2SH:
-                        baseKey = new KeyPath("49'");
-                        break;
-                    case DerivationType.Segwit:
-                        baseKey = new KeyPath("84'");
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(type), type, null);
-                }
-            }
-            return baseKey
-                .Derive(CoinType);
-        }
-
-        public KeyPath GetRootKeyPath()
-        {
-            return new KeyPath(NBitcoinNetwork.Consensus.SupportSegwit ? "49'" : "44'")
-                .Derive(CoinType);
-        }
 
         public override T ToObject<T>(string json)
         {
@@ -121,9 +87,15 @@ namespace BTCPayServer
             });
         }
 
-        public virtual string GenerateBIP21(string cryptoInfoAddress, Money cryptoInfoDue)
+        public virtual PaymentUrlBuilder GenerateBIP21(string cryptoInfoAddress, Money cryptoInfoDue)
         {
-            return $"{UriScheme}:{cryptoInfoAddress}{(cryptoInfoDue is null? string.Empty: $"?amount={cryptoInfoDue.ToString(false, true)}")}";
+            var builder = new PaymentUrlBuilder(this.NBitcoinNetwork.UriScheme);
+            builder.Host = cryptoInfoAddress;
+            if (cryptoInfoDue != null && cryptoInfoDue != Money.Zero)
+            {
+                builder.QueryParams.Add("amount", cryptoInfoDue.ToString(false, true));
+            }
+            return builder;
         }
 
         public virtual List<TransactionInformation> FilterValidTransactions(List<TransactionInformation> transactionInformationSet)

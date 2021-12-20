@@ -26,16 +26,16 @@ using Newtonsoft.Json.Linq;
 using OpenQA.Selenium;
 using Xunit;
 using Xunit.Abstractions;
+using WalletSettingsViewModel = BTCPayServer.Models.StoreViewModels.WalletSettingsViewModel;
 
 namespace BTCPayServer.Tests
 {
-    public class AltcoinTests
+    [Collection(nameof(NonParallelizableCollectionDefinition))]
+    public class AltcoinTests : UnitTestBase
     {
         public const int TestTimeout = 60_000;
-        public AltcoinTests(ITestOutputHelper helper)
+        public AltcoinTests(ITestOutputHelper helper) : base(helper)
         {
-            Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
-            Logs.LogProvider = new XUnitLogProvider(helper);
         }
 
         [Fact]
@@ -44,7 +44,7 @@ namespace BTCPayServer.Tests
         [Trait("Lightning", "Lightning")]
         public async Task CanSetupWallet()
         {
-            using (var tester = ServerTester.Create())
+            using (var tester = CreateServerTester())
             {
                 tester.ActivateLTC();
                 tester.ActivateLightning();
@@ -70,37 +70,37 @@ namespace BTCPayServer.Tests
                 Assert.Equal(3, invoice.CryptoInfo.Length);
 
                 var controller = user.GetController<StoresController>();
-                var lightningVm = (LightningNodeViewModel)Assert.IsType<ViewResult>(controller.SetupLightningNode(user.StoreId, cryptoCode)).Model;
+                var lightningVm = (LightningNodeViewModel)Assert.IsType<ViewResult>(await controller.SetupLightningNode(user.StoreId, cryptoCode)).Model;
                 Assert.True(lightningVm.Enabled);
                 var response = await controller.SetLightningNodeEnabled(user.StoreId, cryptoCode, false);
                 Assert.IsType<RedirectToActionResult>(response);
 
                 // Get enabled state from overview action
-                StoreViewModel storeModel;
-                response = controller.UpdateStore();
-                storeModel = (StoreViewModel)Assert.IsType<ViewResult>(response).Model;
-                var lnNode = storeModel.LightningNodes.Find(node => node.CryptoCode == cryptoCode);
+                PaymentMethodsViewModel paymentMethodsModel;
+                response = controller.PaymentMethods();
+                paymentMethodsModel = (PaymentMethodsViewModel)Assert.IsType<ViewResult>(response).Model;
+                var lnNode = paymentMethodsModel.LightningNodes.Find(node => node.CryptoCode == cryptoCode);
                 Assert.NotNull(lnNode);
                 Assert.False(lnNode.Enabled);
 
                 WalletSetupViewModel setupVm;
                 var storeId = user.StoreId;
-                response = await controller.GenerateWallet(storeId, cryptoCode, WalletSetupMethod.GenerateOptions, new GenerateWalletRequest());
+                response = await controller.GenerateWallet(storeId, cryptoCode, WalletSetupMethod.GenerateOptions, new WalletSetupRequest());
                 Assert.IsType<ViewResult>(response);
 
                 // Get enabled state from overview action
-                response = controller.UpdateStore();
-                storeModel = (StoreViewModel)Assert.IsType<ViewResult>(response).Model;
-                var derivationScheme = storeModel.DerivationSchemes.Find(scheme => scheme.Crypto == cryptoCode);
+                response = controller.PaymentMethods();
+                paymentMethodsModel = (PaymentMethodsViewModel)Assert.IsType<ViewResult>(response).Model;
+                var derivationScheme = paymentMethodsModel.DerivationSchemes.Find(scheme => scheme.Crypto == cryptoCode);
                 Assert.NotNull(derivationScheme);
                 Assert.True(derivationScheme.Enabled);
 
                 // Disable wallet
                 response = controller.SetWalletEnabled(storeId, cryptoCode, false).GetAwaiter().GetResult();
                 Assert.IsType<RedirectToActionResult>(response);
-                response = controller.UpdateStore();
-                storeModel = (StoreViewModel)Assert.IsType<ViewResult>(response).Model;
-                derivationScheme = storeModel.DerivationSchemes.Find(scheme => scheme.Crypto == cryptoCode);
+                response = controller.PaymentMethods();
+                paymentMethodsModel = (PaymentMethodsViewModel)Assert.IsType<ViewResult>(response).Model;
+                derivationScheme = paymentMethodsModel.DerivationSchemes.Find(scheme => scheme.Crypto == cryptoCode);
                 Assert.NotNull(derivationScheme);
                 Assert.False(derivationScheme.Enabled);
 
@@ -138,9 +138,9 @@ namespace BTCPayServer.Tests
                 Assert.True(setupVm.Confirmation);
                 response = await controller.UpdateWallet(setupVm);
                 Assert.IsType<RedirectToActionResult>(response);
-                response = await controller.ModifyWallet(new WalletSetupViewModel { StoreId = storeId, CryptoCode = cryptoCode });
-                setupVm = (WalletSetupViewModel)Assert.IsType<ViewResult>(response).Model;
-                Assert.Equal("CoboVault", setupVm.Source);
+                response = await controller.WalletSettings(storeId, cryptoCode);
+                var settingsVm = (WalletSettingsViewModel)Assert.IsType<ViewResult>(response).Model;
+                Assert.Equal("CoboVault", settingsVm.Source);
 
                 // wasabi wallet file
                 content = "{\r\n  \"EncryptedSecret\": \"6PYWBQ1zsukowsnTNA57UUx791aBuJusm7E4egXUmF5WGw3tcdG3cmTL57\",\r\n  \"ChainCode\": \"waSIVbn8HaoovoQg/0t8IS1+ZCxGsJRGFT21i06nWnc=\",\r\n  \"MasterFingerprint\": \"7a7563b5\",\r\n  \"ExtPubKey\": \"xpub6CEqRFZ7yZxCFXuEWZBAdnC8bdvu9SRHevaoU2SsW9ZmKhrCShmbpGZWwaR15hdLURf8hg47g4TpPGaqEU8hw5LEJCE35AUhne67XNyFGBk\",\r\n  \"PasswordVerified\": false,\r\n  \"MinGapLimit\": 21,\r\n  \"AccountKeyPath\": \"84'/0'/0'\",\r\n  \"BlockchainState\": {\r\n    \"Network\": \"RegTest\",\r\n    \"Height\": \"0\"\r\n  },\r\n  \"HdPubKeys\": []\r\n}";
@@ -149,9 +149,9 @@ namespace BTCPayServer.Tests
                 Assert.True(setupVm.Confirmation);
                 response = await controller.UpdateWallet(setupVm);
                 Assert.IsType<RedirectToActionResult>(response);
-                response = await controller.ModifyWallet(new WalletSetupViewModel { StoreId = storeId, CryptoCode = cryptoCode });
-                setupVm = (WalletSetupViewModel)Assert.IsType<ViewResult>(response).Model;
-                Assert.Equal("WasabiFile", setupVm.Source);
+                response = await controller.WalletSettings(storeId, cryptoCode);
+                settingsVm = (WalletSettingsViewModel)Assert.IsType<ViewResult>(response).Model;
+                Assert.Equal("WasabiFile", settingsVm.Source);
 
                 // Can we upload coldcard settings? (Should fail, we are giving a mainnet file to a testnet network)
                 content = "{\"keystore\": {\"ckcc_xpub\": \"xpub661MyMwAqRbcGVBsTGeNZN6QGVHmMHLdSA4FteGsRrEriu4pnVZMZWnruFFFXkMnyoBjyHndD3Qwcfz4MPzBUxjSevweNFQx7SAYZATtcDw\", \"xpub\": \"ypub6WWc2gWwHbdnAAyJDnR4SPL1phRh7REqrPBfZeizaQ1EmTshieRXJC3Z5YoU4wkcdKHEjQGkh6AYEzCQC1Kz3DNaWSwdc1pc8416hAjzqyD\", \"label\": \"Coldcard Import 0x60d1af8b\", \"ckcc_xfp\": 1624354699, \"type\": \"hardware\", \"hw_type\": \"coldcard\", \"derivation\": \"m/49'/0'/0'\"}, \"wallet_type\": \"standard\", \"use_encryption\": false, \"seed_version\": 17}";
@@ -166,9 +166,9 @@ namespace BTCPayServer.Tests
                 Assert.True(setupVm.Confirmation);
                 response = await controller.UpdateWallet(setupVm);
                 Assert.IsType<RedirectToActionResult>(response);
-                response = await controller.ModifyWallet(new WalletSetupViewModel { StoreId = storeId, CryptoCode = cryptoCode });
-                setupVm = (WalletSetupViewModel)Assert.IsType<ViewResult>(response).Model;
-                Assert.Equal("ElectrumFile", setupVm.Source);
+                response = await controller.WalletSettings(storeId, cryptoCode);
+                settingsVm = (WalletSettingsViewModel)Assert.IsType<ViewResult>(response).Model;
+                Assert.Equal("ElectrumFile", settingsVm.Source);
 
                 // Now let's check that no data has been lost in the process
                 var store = tester.PayTester.StoreRepository.FindStore(storeId).GetAwaiter().GetResult();
@@ -239,7 +239,7 @@ namespace BTCPayServer.Tests
         [Trait("Lightning", "Lightning")]
         public async Task CanCreateInvoiceWithSpecificPaymentMethods()
         {
-            using (var tester = ServerTester.Create())
+            using (var tester = CreateServerTester())
             {
                 tester.ActivateLightning();
                 tester.ActivateLTC();
@@ -271,7 +271,7 @@ namespace BTCPayServer.Tests
         [Trait("Altcoins", "Altcoins")]
         public async Task CanHaveLTCOnlyStore()
         {
-            using (var tester = ServerTester.Create())
+            using (var tester = CreateServerTester())
             {
                 tester.ActivateLTC();
                 await tester.StartAsync();
@@ -342,7 +342,7 @@ namespace BTCPayServer.Tests
         [Trait("Altcoins", "Altcoins")]
         public async Task CanCreateRefunds()
         {
-            using (var s = SeleniumTester.Create())
+            using (var s = CreateSeleniumTester())
             {
                 s.Server.ActivateLTC();
                 await s.StartAsync();
@@ -416,7 +416,7 @@ namespace BTCPayServer.Tests
         [Trait("Lightning", "Lightning")]
         public async Task CanUsePaymentMethodDropdown()
         {
-            using (var s = SeleniumTester.Create())
+            using (var s = CreateSeleniumTester())
             {
                 s.Server.ActivateLTC();
                 s.Server.ActivateLightning();
@@ -463,7 +463,7 @@ namespace BTCPayServer.Tests
         [Trait("Altcoins", "Altcoins")]
         public async Task CanPayWithTwoCurrencies()
         {
-            using (var tester = ServerTester.Create())
+            using (var tester = CreateServerTester())
             {
                 tester.ActivateLTC();
                 await tester.StartAsync();
@@ -531,7 +531,7 @@ namespace BTCPayServer.Tests
                 invoiceAddress = BitcoinAddress.Create(invoice.BitcoinAddress, cashCow.Network);
                 firstPayment = Money.Coins(0.04m);
                 cashCow.SendToAddress(invoiceAddress, firstPayment);
-                Logs.Tester.LogInformation("First payment sent to " + invoiceAddress);
+                TestLogs.LogInformation("First payment sent to " + invoiceAddress);
                 TestUtils.Eventually(() =>
                 {
                     invoice = user.BitPay.GetInvoice(invoice.Id);
@@ -545,7 +545,7 @@ namespace BTCPayServer.Tests
                 var secondPayment = Money.Coins(decimal.Parse(ltcCryptoInfo.Due, CultureInfo.InvariantCulture));
                 cashCow.Generate(4); // LTC is not worth a lot, so just to make sure we have money...
                 cashCow.SendToAddress(invoiceAddress, secondPayment);
-                Logs.Tester.LogInformation("Second payment sent to " + invoiceAddress);
+                TestLogs.LogInformation("Second payment sent to " + invoiceAddress);
                 TestUtils.Eventually(() =>
                 {
                     invoice = user.BitPay.GetInvoice(invoice.Id);
@@ -602,20 +602,20 @@ namespace BTCPayServer.Tests
         [Trait("Altcoins", "Altcoins")]
         public async Task CanUsePoSApp()
         {
-            using (var tester = ServerTester.Create())
+            using (var tester = CreateServerTester())
             {
                 tester.ActivateLTC();
                 await tester.StartAsync();
                 var user = tester.NewAccount();
-                user.GrantAccess();
+                await user.GrantAccessAsync();
                 user.RegisterDerivationScheme("BTC");
                 user.RegisterDerivationScheme("LTC");
                 var apps = user.GetController<AppsController>();
-                var vm = Assert.IsType<CreateAppViewModel>(Assert.IsType<ViewResult>(apps.CreateApp().Result).Model);
-                vm.Name = "test";
+                var vm = Assert.IsType<CreateAppViewModel>(Assert.IsType<ViewResult>(apps.CreateApp(user.StoreId)).Model);
+                vm.AppName = "test";
                 vm.SelectedAppType = AppType.PointOfSale.ToString();
-                Assert.IsType<RedirectToActionResult>(apps.CreateApp(vm).Result);
-                var appId = Assert.IsType<ListAppsViewModel>(Assert.IsType<ViewResult>(apps.ListApps().Result).Model)
+                Assert.IsType<RedirectToActionResult>(apps.CreateApp(user.StoreId, vm).Result);
+                var appId = Assert.IsType<ListAppsViewModel>(Assert.IsType<ViewResult>(apps.ListApps(user.StoreId).Result).Model)
                     .Apps[0].Id;
                 var vmpos = Assert.IsType<UpdatePointOfSaleViewModel>(Assert
                     .IsType<ViewResult>(apps.UpdatePointOfSale(appId).Result).Model);
@@ -658,13 +658,11 @@ donation:
                     .ViewPointOfSale(appId, PosViewType.Cart, 0, null, null, null, null, "orange").Result);
 
                 //
-                var invoices = user.BitPay.GetInvoices();
+                var invoices = await user.BitPay.GetInvoicesAsync();
                 var orangeInvoice = invoices.First();
                 Assert.Equal(10.00m, orangeInvoice.Price);
                 Assert.Equal("CAD", orangeInvoice.Currency);
                 Assert.Equal("orange", orangeInvoice.ItemDesc);
-
-
                 Assert.IsType<RedirectToActionResult>(publicApps
                     .ViewPointOfSale(appId, PosViewType.Cart, 0, null, null, null, null, "apple").Result);
 
@@ -672,8 +670,7 @@ donation:
                 var appleInvoice = invoices.SingleOrDefault(invoice => invoice.ItemCode.Equals("apple"));
                 Assert.NotNull(appleInvoice);
                 Assert.Equal("good apple", appleInvoice.ItemDesc);
-
-
+                
                 // testing custom amount
                 var action = Assert.IsType<RedirectToActionResult>(publicApps
                     .ViewPointOfSale(appId, PosViewType.Cart, 6.6m, null, null, null, null, "donation").Result);
@@ -696,7 +693,7 @@ donation:
                         ExpectedThousandSeparator: ",", ExpectedPrefixed: false, ExpectedSymbolSpace: true),
                 })
                 {
-                    Logs.Tester.LogInformation($"Testing for {test.Code}");
+                    TestLogs.LogInformation($"Testing for {test.Code}");
                     vmpos = Assert.IsType<UpdatePointOfSaleViewModel>(Assert
                         .IsType<ViewResult>(apps.UpdatePointOfSale(appId).Result).Model);
                     vmpos.Title = "hello";
@@ -772,7 +769,7 @@ noninventoryitem:
                     Assert.Single(invoices.Where(invoice => invoice.ItemCode.Equals("inventoryitem")));
                 Assert.NotNull(inventoryItemInvoice);
 
-                //let's mark the inventoryitem invoice as invalid, thsi should return the item to back in stock
+                //let's mark the inventoryitem invoice as invalid, this should return the item to back in stock
                 var controller = tester.PayTester.GetController<InvoiceController>(user.UserId, user.StoreId);
                 var appService = tester.PayTester.GetService<AppService>();
                 var eventAggregator = tester.PayTester.GetService<EventAggregator>();
@@ -786,9 +783,7 @@ noninventoryitem:
                         appService.Parse(vmpos.Template, "BTC").Single(item => item.Id == "inventoryitem").Inventory);
                 }, 10000);
 
-
                 //test payment methods option
-
                 vmpos = Assert.IsType<UpdatePointOfSaleViewModel>(Assert
                     .IsType<ViewResult>(apps.UpdatePointOfSale(appId).Result).Model);
                 vmpos.Title = "hello";
@@ -820,278 +815,51 @@ normal:
                     normalInvoice.CryptoInfo,
                     s => PaymentTypes.BTCLike.ToString() == s.PaymentType && new[] { "BTC", "LTC" }.Contains(
                              s.CryptoCode));
+                
+                //test topup option
+                vmpos.Template = @"
+a:
+  price: 1000.0
+  title: good apple
+  
+b:
+  price: 10.0
+  custom: false
+c:
+  price: 1.02
+  custom: true
+d:
+  price: 1.02
+  price_type: fixed
+e:
+  price: 1.02
+  price_type: minimum
+f:
+  price_type: topup
+g:
+  custom: topup
+";
+                
+                Assert.IsType<RedirectToActionResult>(apps.UpdatePointOfSale(appId, vmpos).Result);
+                vmpos = Assert.IsType<UpdatePointOfSaleViewModel>(Assert
+                    .IsType<ViewResult>(await apps.UpdatePointOfSale(appId)).Model);
+                Assert.DoesNotContain("custom", vmpos.Template);
+                var items = appService.Parse(vmpos.Template, vmpos.Currency);
+                Assert.Contains(items, item => item.Id == "a" && item.Price.Type == ViewPointOfSaleViewModel.Item.ItemPrice.ItemPriceType.Fixed);
+                Assert.Contains(items, item => item.Id == "b" && item.Price.Type == ViewPointOfSaleViewModel.Item.ItemPrice.ItemPriceType.Fixed);
+                Assert.Contains(items, item => item.Id == "c" && item.Price.Type == ViewPointOfSaleViewModel.Item.ItemPrice.ItemPriceType.Minimum);
+                Assert.Contains(items, item => item.Id == "d" && item.Price.Type == ViewPointOfSaleViewModel.Item.ItemPrice.ItemPriceType.Fixed);
+                Assert.Contains(items, item => item.Id == "e" && item.Price.Type == ViewPointOfSaleViewModel.Item.ItemPrice.ItemPriceType.Minimum);
+                Assert.Contains(items, item => item.Id == "f" && item.Price.Type == ViewPointOfSaleViewModel.Item.ItemPrice.ItemPriceType.Topup);
+                Assert.Contains(items, item => item.Id == "g" && item.Price.Type == ViewPointOfSaleViewModel.Item.ItemPrice.ItemPriceType.Topup);
+                
+                Assert.IsType<RedirectToActionResult>(publicApps
+                    .ViewPointOfSale(appId, PosViewType.Static, null, null, null, null, null, "g").Result);
+                invoices = user.BitPay.GetInvoices();
+                var topupInvoice = invoices.Single(invoice => invoice.ItemCode == "g");
+                Assert.Equal(0, topupInvoice.Price);
+                Assert.Equal("new", topupInvoice.Status);
             }
-        }
-
-        [Fact]
-        [Trait("Fast", "Fast")]
-        [Trait("Altcoins", "Altcoins")]
-        public void CanCalculateCryptoDue2()
-        {
-#pragma warning disable CS0618
-            var dummy = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.RegTest).ToString();
-            var networkProvider = new BTCPayNetworkProvider(ChainName.Regtest);
-            var paymentMethodHandlerDictionary = new PaymentMethodHandlerDictionary(new IPaymentMethodHandler[]
-            {
-                new BitcoinLikePaymentHandler(null, networkProvider, null, null, null),
-                new LightningLikePaymentHandler(null, null, networkProvider, null, null, null),
-            });
-            var networkBTC = networkProvider.GetNetwork("BTC");
-            var networkLTC = networkProvider.GetNetwork("LTC");
-            InvoiceEntity invoiceEntity = new InvoiceEntity();
-            invoiceEntity.Networks = networkProvider;
-            invoiceEntity.Payments = new System.Collections.Generic.List<PaymentEntity>();
-            invoiceEntity.Price = 100;
-            PaymentMethodDictionary paymentMethods = new PaymentMethodDictionary();
-            paymentMethods.Add(new PaymentMethod() { Network = networkBTC, CryptoCode = "BTC", Rate = 10513.44m, }
-                .SetPaymentMethodDetails(
-                    new BTCPayServer.Payments.Bitcoin.BitcoinLikeOnChainPaymentMethod()
-                    {
-                        NextNetworkFee = Money.Coins(0.00000100m),
-                        DepositAddress = dummy
-                    }));
-            paymentMethods.Add(new PaymentMethod() { Network = networkLTC, CryptoCode = "LTC", Rate = 216.79m }
-                .SetPaymentMethodDetails(
-                    new BTCPayServer.Payments.Bitcoin.BitcoinLikeOnChainPaymentMethod()
-                    {
-                        NextNetworkFee = Money.Coins(0.00010000m),
-                        DepositAddress = dummy
-                    }));
-            invoiceEntity.SetPaymentMethods(paymentMethods);
-
-            var btc = invoiceEntity.GetPaymentMethod(new PaymentMethodId("BTC", PaymentTypes.BTCLike));
-            var accounting = btc.Calculate();
-
-            invoiceEntity.Payments.Add(
-                new PaymentEntity()
-                {
-                    Accounted = true,
-                    CryptoCode = "BTC",
-                    NetworkFee = 0.00000100m,
-                    Network = networkProvider.GetNetwork("BTC"),
-                }
-                    .SetCryptoPaymentData(new BitcoinLikePaymentData()
-                    {
-                        Network = networkProvider.GetNetwork("BTC"),
-                        Output = new TxOut() { Value = Money.Coins(0.00151263m) }
-                    }));
-            accounting = btc.Calculate();
-            invoiceEntity.Payments.Add(
-                new PaymentEntity()
-                {
-                    Accounted = true,
-                    CryptoCode = "BTC",
-                    NetworkFee = 0.00000100m,
-                    Network = networkProvider.GetNetwork("BTC")
-                }
-                    .SetCryptoPaymentData(new BitcoinLikePaymentData()
-                    {
-                        Network = networkProvider.GetNetwork("BTC"),
-                        Output = new TxOut() { Value = accounting.Due }
-                    }));
-            accounting = btc.Calculate();
-            Assert.Equal(Money.Zero, accounting.Due);
-            Assert.Equal(Money.Zero, accounting.DueUncapped);
-
-            var ltc = invoiceEntity.GetPaymentMethod(new PaymentMethodId("LTC", PaymentTypes.BTCLike));
-            accounting = ltc.Calculate();
-
-            Assert.Equal(Money.Zero, accounting.Due);
-            // LTC might have over paid due to BTC paying above what it should (round 1 satoshi up)
-            Assert.True(accounting.DueUncapped < Money.Zero);
-
-            var paymentMethod = InvoiceWatcher.GetNearestClearedPayment(paymentMethods, out var accounting2);
-            Assert.Equal(btc.CryptoCode, paymentMethod.CryptoCode);
-#pragma warning restore CS0618
-        }
-
-        [Fact]
-        [Trait("Fast", "Fast")]
-        [Trait("Altcoins", "Altcoins")]
-        public void CanParseDerivationScheme()
-        {
-            var testnetNetworkProvider = new BTCPayNetworkProvider(ChainName.Testnet);
-            var regtestNetworkProvider = new BTCPayNetworkProvider(ChainName.Regtest);
-            var mainnetNetworkProvider = new BTCPayNetworkProvider(ChainName.Mainnet);
-            var testnetParser = new DerivationSchemeParser(testnetNetworkProvider.GetNetwork<BTCPayNetwork>("BTC"));
-            var mainnetParser = new DerivationSchemeParser(mainnetNetworkProvider.GetNetwork<BTCPayNetwork>("BTC"));
-            NBXplorer.DerivationStrategy.DerivationStrategyBase result;
-            //  Passing electrum stuff
-            // Passing a native segwit from mainnet to a testnet parser, means the testnet parser will try to convert it into segwit
-            result = testnetParser.Parse(
-                "zpub6nL6PUGurpU3DfPDSZaRS6WshpbNc9ctCFFzrCn54cssnheM31SZJZUcFHKtjJJNhAueMbh6ptFMfy1aeiMQJr3RJ4DDt1hAPx7sMTKV48t");
-            Assert.Equal(
-                "tpubD93CJNkmGjLXnsBqE2zGDqfEh1Q8iJ8wueordy3SeWt1RngbbuxXCsqASuVWFywmfoCwUE1rSfNJbaH4cBNcbp8WcyZgPiiRSTazLGL8U9w",
-                result.ToString());
-            result = mainnetParser.Parse(
-                "zpub6nL6PUGurpU3DfPDSZaRS6WshpbNc9ctCFFzrCn54cssnheM31SZJZUcFHKtjJJNhAueMbh6ptFMfy1aeiMQJr3RJ4DDt1hAPx7sMTKV48t");
-            Assert.Equal(
-                "xpub68fZn8w5ZTP5X4zymr1B1vKsMtJUiudtN2DZHQzJJc87gW1tXh7S4SALCsQijUzXstg2reVyuZYFuPnTDKXNiNgDZNpNiC4BrVzaaGEaRHj",
-                result.ToString());
-            // P2SH
-            result = testnetParser.Parse(
-                "upub57Wa4MvRPNyAipy1MCpERxcFpHR2ZatyikppkyeWkoRL6QJvLVMo39jYdcaJVxyvBURyRVmErBEA5oGicKBgk1j72GAXSPFH5tUDoGZ8nEu");
-            Assert.Equal(
-                "tpubD6NzVbkrYhZ4YWjDJUACG9E8fJx2NqNY1iynTiPKEjJrzzRKAgha3nNnwGXr2BtvCJKJHW4nmG7rRqc2AGGy2AECgt16seMyV2FZivUmaJg-[p2sh]",
-                result.ToString());
-
-            result = mainnetParser.Parse(
-                "ypub6QqdH2c5z79681jUgdxjGJzGW9zpL4ryPCuhtZE4GpvrJoZqM823XQN6iSQeVbbbp2uCRQ9UgpeMcwiyV6qjvxTWVcxDn2XEAnioMUwsrQ5");
-            Assert.Equal(
-                "xpub661MyMwAqRbcGiYMrHB74DtmLBrNPSsUU6PV7ALAtpYyFhkc6TrUuLhxhET4VgwgQPnPfvYvEAHojf7QmQRj8imudHFoC7hju4f9xxri8wR-[p2sh]",
-                result.ToString());
-
-            // if prefix not recognize, assume it is segwit
-            result = testnetParser.Parse(
-                "xpub661MyMwAqRbcGeVGU5e5KBcau1HHEUGf9Wr7k4FyLa8yRPNQrrVa7Ndrgg8Afbe2UYXMSL6tJBFd2JewwWASsePPLjkcJFL1tTVEs3UQ23X");
-            Assert.Equal(
-                "tpubD6NzVbkrYhZ4YSg7vGdAX6wxE8NwDrmih9SR6cK7gUtsAg37w5LfFpJgviCxC6bGGT4G3uckqH5fiV9ZLN1gm5qgQLVuymzFUR5ed7U7ksu",
-                result.ToString());
-            ////////////////
-
-            var tpub =
-                "tpubD6NzVbkrYhZ4Wc65tjhmcKdWFauAo7bGLRTxvggygkNyp6SMGutJp7iociwsinU33jyNBp1J9j2hJH5yQsayfiS3LEU2ZqXodAcnaygra8o";
-
-            result = testnetParser.Parse(tpub);
-            Assert.Equal(tpub, result.ToString());
-            testnetParser.HintScriptPubKey = BitcoinAddress
-                .Create("tb1q4s33amqm8l7a07zdxcunqnn3gcsjcfz3xc573l", testnetParser.Network).ScriptPubKey;
-            result = testnetParser.Parse(tpub);
-            Assert.Equal(tpub, result.ToString());
-
-            testnetParser.HintScriptPubKey = BitcoinAddress
-                .Create("2N2humNio3YTApSfY6VztQ9hQwDnhDvaqFQ", testnetParser.Network).ScriptPubKey;
-            result = testnetParser.Parse(tpub);
-            Assert.Equal($"{tpub}-[p2sh]", result.ToString());
-
-            testnetParser.HintScriptPubKey = BitcoinAddress
-                .Create("mwD8bHS65cdgUf6rZUUSoVhi3wNQFu1Nfi", testnetParser.Network).ScriptPubKey;
-            result = testnetParser.Parse(tpub);
-            Assert.Equal($"{tpub}-[legacy]", result.ToString());
-
-            testnetParser.HintScriptPubKey = BitcoinAddress
-                .Create("2N2humNio3YTApSfY6VztQ9hQwDnhDvaqFQ", testnetParser.Network).ScriptPubKey;
-            result = testnetParser.Parse($"{tpub}-[legacy]");
-            Assert.Equal($"{tpub}-[p2sh]", result.ToString());
-
-            result = testnetParser.Parse(tpub);
-            Assert.Equal($"{tpub}-[p2sh]", result.ToString());
-
-            var regtestParser = new DerivationSchemeParser(regtestNetworkProvider.GetNetwork<BTCPayNetwork>("BTC"));
-            var parsed =
-                regtestParser.Parse(
-                    "xpub6DG1rMYXiQtCc6CfdLFD9CtxqhzzRh7j6Sq6EdE9abgYy3cfDRrniLLv2AdwqHL1exiLnnKR5XXcaoiiexf3Y9R6J6rxkJtqJHzNzMW9QMZ-[p2sh]");
-            Assert.Equal(
-                "tpubDDdeNbNDRgqestPX5XEJM8ELAq6eR5cne5RPbBHHvWSSiLHNHehsrn1kGCijMnHFSsFFQMqHcdMfGzDL3pWHRasPMhcGRqZ4tFankQ3i4ok-[p2sh]",
-                parsed.ToString());
-
-            // Let's make sure we can't generate segwit with dogecoin
-            regtestParser = new DerivationSchemeParser(regtestNetworkProvider.GetNetwork<BTCPayNetwork>("DOGE"));
-            parsed = regtestParser.Parse(
-                "xpub6DG1rMYXiQtCc6CfdLFD9CtxqhzzRh7j6Sq6EdE9abgYy3cfDRrniLLv2AdwqHL1exiLnnKR5XXcaoiiexf3Y9R6J6rxkJtqJHzNzMW9QMZ-[p2sh]");
-            Assert.Equal(
-                "tpubDDdeNbNDRgqestPX5XEJM8ELAq6eR5cne5RPbBHHvWSSiLHNHehsrn1kGCijMnHFSsFFQMqHcdMfGzDL3pWHRasPMhcGRqZ4tFankQ3i4ok-[legacy]",
-                parsed.ToString());
-
-            regtestParser = new DerivationSchemeParser(regtestNetworkProvider.GetNetwork<BTCPayNetwork>("DOGE"));
-            parsed = regtestParser.Parse(
-                "tpubDDdeNbNDRgqestPX5XEJM8ELAq6eR5cne5RPbBHHvWSSiLHNHehsrn1kGCijMnHFSsFFQMqHcdMfGzDL3pWHRasPMhcGRqZ4tFankQ3i4ok-[p2sh]");
-            Assert.Equal(
-                "tpubDDdeNbNDRgqestPX5XEJM8ELAq6eR5cne5RPbBHHvWSSiLHNHehsrn1kGCijMnHFSsFFQMqHcdMfGzDL3pWHRasPMhcGRqZ4tFankQ3i4ok-[legacy]",
-                parsed.ToString());
-            
-            //let's test output descriptor parsing support
-
-            
-            //we don't support every descriptor, only the ones which represent an HD wallet with stndard derivation paths
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("pk(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798)"));
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("pkh(02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5)"));
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("wpkh(02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9)"));
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("sh(wpkh(03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556))"));
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("combo(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798)"));
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("sh(wsh(pkh(02e493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13)))"));
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("multi(1,022f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4,025cbdf0646e5db4eaa398f365f2ea7a0e3d419b7e0330e39ce92bddedcac4f9bc)"));
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("sh(multi(2,022f01e5e15cca351daff3843fb70f3c2f0a1bdd05e5af888a67784ef3e10a2a01,03acd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe))"));
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("sh(sortedmulti(2,03acd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe,022f01e5e15cca351daff3843fb70f3c2f0a1bdd05e5af888a67784ef3e10a2a01))"));
-
-            //let's see what we actually support now
-            
-            //standard legacy hd wallet
-            var parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "pkh([d34db33f/44'/0'/0']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*)");
-            Assert.Equal(KeyPath.Parse("44'/0'/0'"),Assert.Single(parsedDescriptor.Item2).KeyPath);
-            Assert.Equal( HDFingerprint.Parse("d34db33f"),Assert.Single(parsedDescriptor.Item2).MasterFingerprint);
-            Assert.Equal("xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-[legacy]",parsedDescriptor.Item1.ToString() );
-            
-            //masterfingerprint and key path are optional
-            parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "pkh([d34db33f]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*)");
-            Assert.Equal("xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-[legacy]",parsedDescriptor.Item1.ToString() );
-            //a master fingerprint must always be present if youre providing rooted path
-            Assert.Throws<ParsingException>(() => mainnetParser.ParseOutputDescriptor("pkh([44'/0'/0']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/1/*)"));
-           
-            
-            parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "pkh(xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*)");
-            Assert.Equal("xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-[legacy]",parsedDescriptor.Item1.ToString() );
-
-            //but a different deriv path from standard (0/*) is not supported
-            Assert.Throws<FormatException>(() => mainnetParser.ParseOutputDescriptor("pkh(xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/1/*)"));
-
-            //p2sh-segwit hd wallet
-             parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "sh(wpkh([d34db33f/49'/0'/0']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*))");
-            Assert.Equal(KeyPath.Parse("49'/0'/0'"),Assert.Single(parsedDescriptor.Item2).KeyPath);
-            Assert.Equal( HDFingerprint.Parse("d34db33f"),Assert.Single(parsedDescriptor.Item2).MasterFingerprint);
-            Assert.Equal("xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-[p2sh]",parsedDescriptor.Item1.ToString() );
-
-            //segwit hd wallet
-            parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "wpkh([d34db33f/84'/0'/0']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*)");
-            Assert.Equal(KeyPath.Parse("84'/0'/0'"),Assert.Single(parsedDescriptor.Item2).KeyPath);
-            Assert.Equal( HDFingerprint.Parse("d34db33f"),Assert.Single(parsedDescriptor.Item2).MasterFingerprint);
-            Assert.Equal("xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL",parsedDescriptor.Item1.ToString() );
-
-            //multisig tests
-
-            //legacy
-            parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "sh(multi(1,[d34db33f/45'/0]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*,[d34db33f/45'/0]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*))");
-            Assert.Equal(2, parsedDescriptor.Item2.Length);
-            var strat =   Assert.IsType<MultisigDerivationStrategy>(Assert.IsType<P2SHDerivationStrategy>(parsedDescriptor.Item1).Inner);
-            Assert.True(strat.IsLegacy);
-            Assert.Equal(1,strat.RequiredSignatures);
-            Assert.Equal(2,strat.Keys.Count());
-            Assert.False(strat.LexicographicOrder);
-            Assert.Equal("1-of-xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-[legacy]-[keeporder]",parsedDescriptor.Item1.ToString() );
-
-            //segwit
-            parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "wsh(multi(1,[d34db33f/48'/0'/0'/2']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*,[d34db33f/48'/0'/0'/2']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*))");
-            Assert.Equal(2, parsedDescriptor.Item2.Length);
-            strat =   Assert.IsType<MultisigDerivationStrategy>(Assert.IsType<P2WSHDerivationStrategy>(parsedDescriptor.Item1).Inner);
-            Assert.False(strat.IsLegacy);
-            Assert.Equal(1,strat.RequiredSignatures);
-            Assert.Equal(2,strat.Keys.Count());
-            Assert.False(strat.LexicographicOrder);
-            Assert.Equal("1-of-xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-[keeporder]",parsedDescriptor.Item1.ToString() );
-
-
-            //segwit-p2sh
-            parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "sh(wsh(multi(1,[d34db33f/48'/0'/0'/2']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*,[d34db33f/48'/0'/0'/2']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*)))");
-            Assert.Equal(2, parsedDescriptor.Item2.Length);
-            strat =   Assert.IsType<MultisigDerivationStrategy>(Assert.IsType<P2WSHDerivationStrategy>(Assert.IsType<P2SHDerivationStrategy>(parsedDescriptor.Item1).Inner).Inner);
-            Assert.False(strat.IsLegacy);
-            Assert.Equal(1,strat.RequiredSignatures);
-            Assert.Equal(2,strat.Keys.Count());
-            Assert.False(strat.LexicographicOrder);
-            Assert.Equal("1-of-xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-[keeporder]-[p2sh]",parsedDescriptor.Item1.ToString() );
-
-            //sorted
-            parsedDescriptor = mainnetParser.ParseOutputDescriptor(
-                "sh(sortedmulti(1,[d34db33f/48'/0'/0'/1']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*,[d34db33f/48'/0'/0'/1']xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/0/*))");
-            Assert.Equal("1-of-xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL-[legacy]",parsedDescriptor.Item1.ToString() );
         }
     }
 }

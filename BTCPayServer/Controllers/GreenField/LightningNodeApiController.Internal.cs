@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
+using BTCPayServer.Abstractions.Contracts;
 using BTCPayServer.Client;
 using BTCPayServer.Client.Models;
 using BTCPayServer.Configuration;
@@ -26,11 +27,10 @@ namespace BTCPayServer.Controllers.GreenField
 
 
         public InternalLightningNodeApiController(
-            BTCPayNetworkProvider btcPayNetworkProvider, BTCPayServerEnvironment btcPayServerEnvironment,
-            CssThemeManager cssThemeManager, LightningClientFactoryService lightningClientFactory,  
+            BTCPayNetworkProvider btcPayNetworkProvider, ISettingsRepository settingsRepository, LightningClientFactoryService lightningClientFactory,  
             IOptions<LightningNetworkOptions> lightningNetworkOptions,
             IAuthorizationService authorizationService) : base(
-            btcPayNetworkProvider, btcPayServerEnvironment, cssThemeManager, authorizationService)
+            btcPayNetworkProvider, settingsRepository, authorizationService)
         {
             _btcPayNetworkProvider = btcPayNetworkProvider;
             _lightningClientFactory = lightningClientFactory;
@@ -104,12 +104,16 @@ namespace BTCPayServer.Controllers.GreenField
         protected override async Task<ILightningClient> GetLightningClient(string cryptoCode, bool doingAdminThings)
         {
             var network = _btcPayNetworkProvider.GetNetwork<BTCPayNetwork>(cryptoCode);
-            if (network == null ||
-                !_lightningNetworkOptions.Value.InternalLightningByCryptoCode.TryGetValue(network.CryptoCode,
-                out var internalLightningNode) ||
-                !await CanUseInternalLightning(doingAdminThings))
+            if (network is null)
+                throw ErrorCryptoCodeNotFound();
+            if (!_lightningNetworkOptions.Value.InternalLightningByCryptoCode.TryGetValue(network.CryptoCode,
+                out var internalLightningNode))
             {
-                return null;
+                throw ErrorInternalLightningNodeNotConfigured();
+            }
+            if (!await CanUseInternalLightning(doingAdminThings))
+            {
+                throw ErrorShouldBeAdminForInternalNode();
             }
             return _lightningClientFactory.Create(internalLightningNode, network);
         }

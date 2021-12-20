@@ -1,7 +1,11 @@
+using Newtonsoft.Json;
+
 namespace BTCPayServer.Services
 {
     public class MigrationSettings
     {
+        [JsonProperty("MigrateHotwalletProperty2")]
+        public bool MigrateHotwalletProperty { get; set; }
         public bool MigrateU2FToFIDO2{ get; set; }
         public bool UnreachableStoreCheck { get; set; }
         public bool DeprecatedLightningConnectionStringCheck { get; set; }
@@ -21,5 +25,8 @@ namespace BTCPayServer.Services
         
         // Done in DbMigrationsHostedService
         public int? MigratedInvoiceTextSearchPages { get; set; }
+        public bool MigrateAppCustomOption { get; set; }
+        public bool MigratePayoutDestinationId { get; set; }
+        public bool AddInitialUserBlob { get; set; }
     }
 }

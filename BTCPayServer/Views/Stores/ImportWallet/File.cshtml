@@ -2,7 +2,7 @@
 @addTagHelper *, BundlerMinifier.TagHelpers
 @{
     Layout = "_LayoutWalletSetup";
-    ViewData.SetActivePageAndTitle(StoreNavPages.Wallet, "Import your wallet file", Context.GetStoreData().StoreName);
+    ViewData.SetActivePageAndTitle(StoreNavPages.PaymentMethods, "Import your wallet file", Context.GetStoreData().StoreName);
 }
 
 @section Navbar {
@@ -18,15 +18,15 @@
 
 <form method="post" enctype="multipart/form-data" class="my-5">
     <div class="form-group">
-        <label asp-for="WalletFile"></label>
-        <input asp-for="WalletFile" type="file" class="form-control-file" required>
+        <label asp-for="WalletFile" class="form-label"></label>
+        <input asp-for="WalletFile" type="file" class="form-control" required>
         <span asp-validation-for="WalletFile" class="text-danger"></span>
     </div>
 
     <button type="submit" class="btn btn-primary">Continue</button>
 </form>
 
-<table class="table table-sm">
+<table class="table table-hover">
     <thead>
     <tr>
         <th>Wallet</th>
@@ -40,7 +40,7 @@
     </tr>
     <tr>
         <td>ColdCard</td>
-        <td>Advanced ❯ MicroSD Card ❯ Electrum Wallet</td>
+        <td>Advanced ❯ MicroSD Card ❯ Export Wallet ❯ Electrum Wallet</td>
     </tr>
     <tr>
         <td>Electrum</td>
@@ -54,5 +54,9 @@
         <td class="text-nowrap">Specter Desktop</td>
         <td>Wallet ❯ Settings ❯ Export ❯ Export To Wallet Software ❯ Save wallet file</td>
     </tr>
+     <tr>
+        <td>Passport</td>
+        <td>Wallet ❯ Pair Wallet ❯ BTCPay ❯ microSD ❯ Save wallet file</td>
+    </tr>    
     </tbody>
 </table>

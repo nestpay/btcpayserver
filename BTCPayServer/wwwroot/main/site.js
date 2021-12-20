@@ -1,4 +1,4 @@
-$(function () {
+document.addEventListener("DOMContentLoaded", function () {
     // initialize timezone offset value if field is present in page
     var timezoneOffset = new Date().getTimezoneOffset();
     $("#TimezoneOffset").val(timezoneOffset);
@@ -11,7 +11,6 @@ $(function () {
         var dateString = localDate.toLocaleDateString() + " " + localDate.toLocaleTimeString();
         $(this).text(dateString);
     });
-    
     
     function updateTimeAgo(){
         var timeagoElements = $("[data-timeago-unixms]");
@@ -46,7 +45,8 @@ $(function () {
                 maxDate: max,
                 defaultDate: defaultDate,
                 time_24hr: true,
-                defaultHour: 0
+                defaultHour: 0,
+                static: true
             });
         }
     });
@@ -65,7 +65,7 @@ $(function () {
         });
     });
 
-    $('[data-toggle="tooltip"]').tooltip();
+    $('[data-bs-toggle="tooltip"]').tooltip();
 
     function handleInputGroupClearButtonDisplay(element) {
         var inputs = $(element).parents(".input-group").find("input");
@@ -81,6 +81,62 @@ $(function () {
     }
 
     $('[data-clipboard]').on('click', window.copyToClipboard);
+
+    $('[data-toggle="password"]').each(function () {
+        var input = $(this);
+        var eye_btn = $(this).parent().find('.input-group-text');
+        eye_btn.css('cursor', 'pointer').addClass('input-password-hide');
+        eye_btn.on('click', function () {
+            if (eye_btn.hasClass('input-password-hide')) {
+                eye_btn.removeClass('input-password-hide').addClass('input-password-show');
+                eye_btn.find('.fa').removeClass('fa-eye').addClass('fa-eye-slash')
+                input.attr('type', 'text');
+            } else {
+                eye_btn.removeClass('input-password-show').addClass('input-password-hide');
+                eye_btn.find('.fa').removeClass('fa-eye-slash').addClass('fa-eye')
+                input.attr('type', 'password');
+            }
+        });
+    });
+
+    // Theme Switch
+    delegate('click', '.btcpay-theme-switch', e => {
+        e.preventDefault()
+        const current = document.documentElement.getAttribute(THEME_ATTR) || COLOR_MODES[0]
+        const mode = current === COLOR_MODES[0] ? COLOR_MODES[1] : COLOR_MODES[0]
+        setColorMode(mode)
+        e.target.closest('.btcpay-theme-switch').blur()
+    })
+    
+    // Offcanvas navigation
+    const mainMenuToggle = document.getElementById('mainMenuToggle')
+    if (mainMenuToggle) {
+        delegate('show.bs.offcanvas', '#mainNav', () => {
+            mainMenuToggle.setAttribute('aria-expanded', 'true')
+        })
+        delegate('hide.bs.offcanvas', '#mainNav', () => {
+            mainMenuToggle.setAttribute('aria-expanded', 'false')
+        })
+    }
+    
+    // Menu collapses
+    const mainNav = document.getElementById('mainNav')
+    if (mainNav) {
+        const COLLAPSED_KEY = 'btcpay-nav-collapsed'
+        delegate('show.bs.collapse', '#mainNav', (e) => {
+            const { id } = e.target
+            const navCollapsed = window.localStorage.getItem(COLLAPSED_KEY)
+            const collapsed = navCollapsed ? JSON.parse(navCollapsed).filter(i => i !== id ) : []
+            window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify(collapsed))
+        })
+        delegate('hide.bs.collapse', '#mainNav', (e) => {
+            const { id } = e.target
+            const navCollapsed = window.localStorage.getItem(COLLAPSED_KEY)
+            const collapsed = navCollapsed ? JSON.parse(navCollapsed) : []
+            if (!collapsed.includes(id)) collapsed.push(id)
+            window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify(collapsed))
+        })
+    }
 });
 
 function switchTimeFormat() {
@@ -93,34 +149,4 @@ function switchTimeFormat() {
     });
 }
 
-/**
- * @author Abdo-Hamoud <abdo.host@gmail.com>
- * https://github.com/Abdo-Hamoud/bootstrap-show-password
- * version: 1.0
- */
 
-!function ($) {
-    //eyeOpenClass: 'fa-eye',
-    //eyeCloseClass: 'fa-eye-slash',
-    'use strict';
-
-    $(function () {
-        $('[data-toggle="password"]').each(function () {
-            var input = $(this);
-            var eye_btn = $(this).parent().find('.input-group-text');
-            eye_btn.css('cursor', 'pointer').addClass('input-password-hide');
-            eye_btn.on('click', function () {
-                if (eye_btn.hasClass('input-password-hide')) {
-                    eye_btn.removeClass('input-password-hide').addClass('input-password-show');
-                    eye_btn.find('.fa').removeClass('fa-eye').addClass('fa-eye-slash')
-                    input.attr('type', 'text');
-                } else {
-                    eye_btn.removeClass('input-password-show').addClass('input-password-hide');
-                    eye_btn.find('.fa').removeClass('fa-eye-slash').addClass('fa-eye')
-                    input.attr('type', 'password');
-                }
-            });
-        });
-    });
-
-}(window.jQuery);

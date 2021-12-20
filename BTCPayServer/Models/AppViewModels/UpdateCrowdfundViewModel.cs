@@ -10,12 +10,18 @@ namespace BTCPayServer.Models.AppViewModels
     {
         public string StoreId { get; set; }
         public string StoreName { get; set; }
+        
+        [Required]
+        [MaxLength(50)]
+        [MinLength(1)]
+        [Display(Name = "App Name")]
+        public string AppName { get; set; }
 
         [Required]
         [MaxLength(30)]
+        [Display(Name = "Display Title")]
         public string Title { get; set; }
 
-        [MaxLength(50)]
         public string Tagline { get; set; }
 
         [Required]
@@ -24,12 +30,12 @@ namespace BTCPayServer.Models.AppViewModels
         [Display(Name = "Featured Image")]
         public string MainImageUrl { get; set; }
 
-        [Display(Name = "Callback Notification Url")]
+        [Display(Name = "Callback Notification URL")]
         [Uri]
         public string NotificationUrl { get; set; }
 
         [Required]
-        [Display(Name = "Allow crowdfund to be publicly visible (still visible to you)")]
+        [Display(Name = "Make Crowdfund Public")]
         public bool Enabled { get; set; } = false;
 
         [Required]
@@ -44,29 +50,30 @@ namespace BTCPayServer.Models.AppViewModels
         [Display(Name = "Enable Disqus Comments")]
         public bool DisqusEnabled { get; set; } = true;
 
-        [Display(Name = "Disqus Shortname")] public string DisqusShortname { get; set; }
-
+        [Display(Name = "Disqus Shortname")] 
+        public string DisqusShortname { get; set; }
+        
+        [Display(Name = "Start date")]
         public DateTime? StartDate { get; set; }
+        
+        [Display(Name = "End date")]
         public DateTime? EndDate { get; set; }
 
-        [Required]
         [MaxLength(5)]
         [Display(Name = "Primary currency used for targets and stats. (e.g. BTC, LTC, USD, etc.)")]
-        public string TargetCurrency { get; set; } = "BTC";
+        public string TargetCurrency { get; set; }
 
-        [Display(Name = "Set a Target amount ")]
+        [Display(Name = "Set a target amount")]
         [Range(0, double.PositiveInfinity)]
         public decimal? TargetAmount { get; set; }
-
-
+        
         public IEnumerable<string> ResetEveryValues = Enum.GetNames(typeof(CrowdfundResetEvery));
 
         [Display(Name = "Reset goal every")]
         public string ResetEvery { get; set; } = nameof(CrowdfundResetEvery.Never);
 
         public int ResetEveryAmount { get; set; } = 1;
-
-
+        
         [Display(Name = "Do not allow additional contributions after target has been reached")]
         public bool EnforceTargetAmount { get; set; }
 
@@ -74,13 +81,13 @@ namespace BTCPayServer.Models.AppViewModels
         public string PerksTemplate { get; set; }
 
         [MaxLength(500)]
-        [Display(Name = "Custom bootstrap CSS file")]
+        [Display(Name = "Custom CSS URL")]
         public string CustomCSSLink { get; set; }
 
         [Display(Name = "Custom CSS Code")]
         public string EmbeddedCSS { get; set; }
 
-        [Display(Name = "Count all invoices created on the store as part of the crowdfunding goal")]
+        [Display(Name = "Count all invoices created on the store as part of the goal")]
         public bool UseAllStoreInvoices { get; set; }
 
         public string AppId { get; set; }
@@ -88,13 +95,17 @@ namespace BTCPayServer.Models.AppViewModels
 
         [Display(Name = "Sort contribution perks by popularity")]
         public bool SortPerksByPopularity { get; set; }
+        
         [Display(Name = "Display contribution ranking")]
         public bool DisplayPerksRanking { get; set; }
-
+        
+        [Display(Name = "Display contribution value")]
+        public bool DisplayPerksValue { get; set; }
 
         [Display(Name = "Sounds to play when a payment is made. One sound per line")]
         public string Sounds { get; set; }
-        [Display(Name = "Colors to rotate between with animation when a payment is made. First color is the default background. One color per line. Can be any valid css color value.")]
+        
+        [Display(Name = "Colors to rotate between with animation when a payment is made. One color per line (any valid css color value).")]
         public string AnimationColors { get; set; }
 
         // NOTE: Improve validation if needed

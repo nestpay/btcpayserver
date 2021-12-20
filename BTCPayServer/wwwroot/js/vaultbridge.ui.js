@@ -25,13 +25,14 @@ var vaultui = (function () {
     }
 
     var VaultFeedbacks = {
-        vaultLoading: new VaultFeedback("?", "Checking BTCPayServer Vault is running...", "vault-feedback1", "vault-loading"),
+        vaultLoading: new VaultFeedback("?", "Checking BTCPay Server Vault is running...", "vault-feedback1", "vault-loading"),
         vaultDenied: new VaultFeedback("failed", "The user declined access to the vault.", "vault-feedback1", "vault-denied"),
         vaultGranted: new VaultFeedback("ok", "Access to vault granted by owner.", "vault-feedback1", "vault-granted"),
-        noVault: new VaultFeedback("failed", "BTCPayServer Vault does not seem to be running, you can download it on <a target=\"_blank\" href=\"https://github.com/btcpayserver/BTCPayServer.Vault/releases/latest\">Github</a>.", "vault-feedback1", "no-vault"),
+        noVault: new VaultFeedback("failed", "BTCPay Server Vault does not seem to be running, you can download it on <a target=\"_blank\" href=\"https://github.com/btcpayserver/BTCPayServer.Vault/releases/latest\">Github</a>.", "vault-feedback1", "no-vault"),
         noWebsockets: new VaultFeedback("failed", "Web sockets are not supported by the browser.", "vault-feedback1", "no-websocket"),
         errorWebsockets: new VaultFeedback("failed", "Error of the websocket while connecting to the backend.", "vault-feedback1", "error-websocket"),
         bridgeConnected: new VaultFeedback("ok", "BTCPayServer successfully connected to the vault.", "vault-feedback1", "bridge-connected"),
+        vaultNeedUpdate: new VaultFeedback("failed", "Your BTCPay Server Vault version is outdated. Please <a target=\"_blank\" href=\"https://github.com/btcpayserver/BTCPayServer.Vault/releases/latest\">download</a> the latest version.", "vault-feedback2", "vault-outdated"),
         noDevice: new VaultFeedback("failed", "No device connected.", "vault-feedback2", "no-device"),
         needInitialized: new VaultFeedback("failed", "The device has not been initialized.", "vault-feedback2", "need-initialized"),
         fetchingDevice: new VaultFeedback("?", "Fetching device...", "vault-feedback2", "fetching-device"),
@@ -88,7 +89,7 @@ var vaultui = (function () {
         function show(feedback) {
             var icon = $(".vault-feedback." + feedback.category + " " + ".vault-feedback-icon");
             icon.removeClass();
-            icon.addClass("vault-feedback-icon mt-1 mr-2");
+            icon.addClass("vault-feedback-icon mt-1 me-2");
             if (feedback.type == "?") {
                 icon.addClass("fa fa-question-circle feedback-icon-loading");
             }

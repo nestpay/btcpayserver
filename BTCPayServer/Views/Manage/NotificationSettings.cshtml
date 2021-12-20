@@ -2,8 +2,9 @@
 @model BTCPayServer.Controllers.ManageController.NotificationSettingsViewModel
 @inject IEnumerable<INotificationHandler> NotificationHandlers
 @{
-    ViewData.SetActivePageAndTitle(ManageNavPages.Notifications, "Notification preferences");
+    ViewData.SetActivePageAndTitle(ManageNavPages.Notifications, "Notification Settings");
 }
+<h2 class="mb-4">@ViewData["Title"]</h2>
 
 <form method="post" asp-action="NotificationSettings">
     @if (Model.All)
@@ -16,18 +17,15 @@
     else
     {
         <div class="form-group">
-
-            <label> Do not receive notifications for</label>
-
-            <div class="card ">
-
+            <p>Do not receive notifications for</p>
+            <div class="card">
                 <ul class="list-group list-group-flush">
                     @for (var index = 0; index < Model.DisabledNotifications.Count; index++)
                     {
                         var item = Model.DisabledNotifications[index];
                         <li class="list-group-item">
                             <input type="hidden"  asp-for="DisabledNotifications[index].Value"/> 
-                            <input type="checkbox" asp-for="DisabledNotifications[index].Selected" class="form-check-inline"/>
+                            <input type="checkbox" asp-for="DisabledNotifications[index].Selected" class="form-check-input form-check-inline"/>
                             <label class="mb-0 cursor-pointer" asp-for="DisabledNotifications[index].Selected">
                                 @item.Text
                             </label>
@@ -36,9 +34,9 @@
                 </ul>
             </div>
         </div>
-        <div>
-            <button type="submit" class="btn btn-secondary" name="command" value="disable-all">Disable all</button>
+        <div class="form-group mt-4">
             <button type="submit" class="btn btn-primary" name="command" value="update">Save</button>
+            <button type="submit" class="btn btn-secondary ms-3" name="command" value="disable-all">Disable all</button>
         </div>
     }
 </form>

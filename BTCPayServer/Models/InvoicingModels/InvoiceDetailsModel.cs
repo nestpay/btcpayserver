@@ -22,12 +22,15 @@ namespace BTCPayServer.Models.InvoicingModels
         public bool Replaced { get; set; }
         public BitcoinLikePaymentData CryptoPaymentData { get; set; }
         public string AdditionalInformation { get; set; }
+
+        public decimal NetworkFee { get; set; }
     }
 
     public class OffChainPaymentViewModel
     {
         public string Crypto { get; set; }
         public string BOLT11 { get; set; }
+        public PaymentType Type { get; set; }
     }
 
     public class InvoiceDetailsModel
@@ -43,6 +46,8 @@ namespace BTCPayServer.Models.InvoicingModels
             public string Overpaid { get; set; }
             [JsonIgnore]
             public PaymentMethodId PaymentMethodId { get; set; }
+
+            public PaymentMethod PaymentMethodRaw { get; set; }
         }
         public class AddressModel
         {
@@ -95,6 +100,13 @@ namespace BTCPayServer.Models.InvoicingModels
             get;
             set;
         }
+
+        public string PaymentRequestLink
+        {
+            get;
+            set;
+        }
+        
         public string NotificationUrl
         {
             get;
@@ -116,5 +128,9 @@ namespace BTCPayServer.Models.InvoicingModels
         public List<PaymentEntity> Payments { get; set; }
         public bool Archived { get; set; }
         public bool CanRefund { get; set; }
+        public bool ShowCheckout { get; set; }
+        public bool CanMarkSettled { get; set; }
+        public bool CanMarkInvalid { get; set; }
+        public bool CanMarkStatus => CanMarkSettled || CanMarkInvalid;
     }
 }

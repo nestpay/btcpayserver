@@ -17,7 +17,7 @@ services:
       TESTS_DB: "Postgres"
       TESTS_POSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=btcpayserver
       TESTS_HOSTNAME: tests
-      TESTS_RUN_EXTERNAL_INTEGRATION: ${TESTS_RUN_EXTERNAL_INTEGRATION:-false}
+      TESTS_RUN_EXTERNAL_INTEGRATION: ${TESTS_RUN_EXTERNAL_INTEGRATION:-"false"}
       TESTS_AzureBlobStorageConnectionString: ${TESTS_AzureBlobStorageConnectionString:-none}
       TEST_MERCHANTLIGHTNINGD: "type=clightning;server=unix://etc/merchant_lightningd_datadir/lightning-rpc"
       TEST_CUSTOMERLIGHTNINGD: "type=clightning;server=unix://etc/customer_lightningd_datadir/lightning-rpc"
@@ -32,6 +32,7 @@ services:
       - "80"
     links:
       - dev
+      - selenium
     extra_hosts: 
       - "tests:127.0.0.1"
     volumes:
@@ -66,7 +67,7 @@ services:
         - "sshd_datadir:/root/.ssh"
 
   devlnd: 
-    image: btcpayserver/bitcoin:0.21.0
+    image: btcpayserver/bitcoin:22.0
     environment:
       BITCOIN_NETWORK: regtest
       BITCOIN_WALLETDIR: "/data/wallets"
@@ -80,8 +81,12 @@ services:
       - postgres
       - customer_lnd
       - merchant_lnd
+  selenium:
+    image: selenium/standalone-chrome:3
+    expose:
+      - "4444"
   nbxplorer:
-    image: nicolasdorier/nbxplorer:2.1.49
+    image: nicolasdorier/nbxplorer:2.2.7
     restart: unless-stopped
     ports:
       - "32838:32838"
@@ -98,6 +103,7 @@ services:
       NBXPLORER_MINGAPSIZE: 5
       NBXPLORER_MAXGAPSIZE: 10
       NBXPLORER_VERBOSE: 1
+      NBXPLORER_EXPOSERPC: 1
       NBXPLORER_NOAUTH: 1
     links:
       - bitcoind
@@ -105,7 +111,7 @@ services:
 
   bitcoind:
     restart: unless-stopped
-    image: btcpayserver/bitcoin:0.21.0
+    image: btcpayserver/bitcoin:22.0
     environment:
       BITCOIN_NETWORK: regtest
       BITCOIN_WALLETDIR: "/data/wallets"
@@ -133,7 +139,7 @@ services:
       - "bitcoin_datadir:/data"
 
   customer_lightningd:
-    image: btcpayserver/lightning:v0.9.3-1-dev
+    image: btcpayserver/lightning:v0.10.1-1-dev
     stop_signal: SIGKILL
     restart: unless-stopped
     environment: 
@@ -182,7 +188,7 @@ services:
       - merchant_lightningd
 
   merchant_lightningd:
-    image: btcpayserver/lightning:v0.9.3-1-dev
+    image: btcpayserver/lightning:v0.10.1-1-dev
     stop_signal: SIGKILL
     environment: 
       EXPOSE_TCP: "true"
@@ -208,14 +214,16 @@ services:
       - bitcoind
 
   postgres:
-    image:  postgres:9.6.5
+    image:  postgres:13.4
+    environment:
+        POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "39372:5432"
     expose:
       - "5432"
 
   merchant_lnd:
-    image: btcpayserver/lnd:v0.12.1-beta
+    image: btcpayserver/lnd:v0.14.1-beta
     restart: unless-stopped
     environment:
       LND_CHAIN: "btc"
@@ -249,7 +257,7 @@ services:
       - bitcoind
 
   customer_lnd:
-    image: btcpayserver/lnd:v0.12.1-beta
+    image: btcpayserver/lnd:v0.14.1-beta
     restart: unless-stopped
     environment:
       LND_CHAIN: "btc"
@@ -285,7 +293,7 @@ services:
 
   tor:
     restart: unless-stopped
-    image: btcpayserver/tor:0.4.1.5
+    image: btcpayserver/tor:0.4.6.5
     container_name: tor
     environment:
         TOR_PASSWORD: btcpayserver

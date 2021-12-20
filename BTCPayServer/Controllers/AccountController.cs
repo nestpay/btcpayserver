@@ -36,6 +36,8 @@ namespace BTCPayServer.Controllers
         private readonly EventAggregator _eventAggregator;
         readonly ILogger _logger;
 
+        public Logs Logs { get; }
+
         public AccountController(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
@@ -44,7 +46,8 @@ namespace BTCPayServer.Controllers
             Configuration.BTCPayServerOptions options,
             BTCPayServerEnvironment btcPayServerEnvironment,
             EventAggregator eventAggregator,
-            Fido2Service fido2Service)
+            Fido2Service fido2Service,
+            Logs logs)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -54,7 +57,8 @@ namespace BTCPayServer.Controllers
             _btcPayServerEnvironment = btcPayServerEnvironment;
             _fido2Service = fido2Service;
             _eventAggregator = eventAggregator;
-            _logger = Logs.PayServer;
+            _logger = logs.PayServer;
+            Logs = logs;
         }
 
         [TempData]
@@ -411,7 +415,6 @@ namespace BTCPayServer.Controllers
             if (policies.LockSubscription && !User.IsInRole(Roles.ServerAdmin))
                 return RedirectToAction(nameof(HomeController.Index), "Home");
             ViewData["ReturnUrl"] = returnUrl;
-            ViewData["AllowIsAdmin"] = _Options.AllowAdminRegistration;
             return View();
         }
 
@@ -429,7 +432,6 @@ namespace BTCPayServer.Controllers
 
             ViewData["ReturnUrl"] = returnUrl;
             ViewData["Logon"] = logon.ToString(CultureInfo.InvariantCulture).ToLowerInvariant();
-            ViewData["AllowIsAdmin"] = _Options.AllowAdminRegistration;
             var policies = await _SettingsRepository.GetSettingAsync<PoliciesSettings>() ?? new PoliciesSettings();
             if (policies.LockSubscription && !User.IsInRole(Roles.ServerAdmin))
                 return RedirectToAction(nameof(HomeController.Index), "Home");
@@ -441,7 +443,7 @@ namespace BTCPayServer.Controllers
                 if (result.Succeeded)
                 {
                     var admin = await _userManager.GetUsersInRoleAsync(Roles.ServerAdmin);
-                    if (admin.Count == 0 || (model.IsAdmin && _Options.AllowAdminRegistration))
+                    if (admin.Count == 0 || (model.IsAdmin && _Options.CheatMode))
                     {
                         await _RoleManager.CreateAsync(new IdentityRole(Roles.ServerAdmin));
                         await _userManager.AddToRoleAsync(user, Roles.ServerAdmin);
@@ -449,7 +451,7 @@ namespace BTCPayServer.Controllers
                         settings.FirstRun = false;
                         await _SettingsRepository.UpdateSetting<ThemeSettings>(settings);
 
-                        await _SettingsRepository.FirstAdminRegistered(policies, _Options.UpdateUrl != null, _Options.DisableRegistration);
+                        await _SettingsRepository.FirstAdminRegistered(policies, _Options.UpdateUrl != null, _Options.DisableRegistration, Logs);
                         RegisteredAdmin = true;
                     }
 

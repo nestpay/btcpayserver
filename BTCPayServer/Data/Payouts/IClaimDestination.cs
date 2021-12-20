@@ -1,12 +1,11 @@
+#nullable enable
+using NBitcoin;
+
 namespace BTCPayServer.Data
 {
     public interface IClaimDestination
     {
-    }
-
-    public interface IPayoutProof
-    {
-        string Link { get; }
-        string Id { get; }
+        public string? Id { get; }
+        decimal? Amount { get; }
     }
 }
